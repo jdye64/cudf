@@ -4,7 +4,7 @@
 | Device            | Jetpack Version | Supported?  |
 |:----------------- |:------:|:-------:|
 | Nano              | *      | NO      |
-| Xavier NX         | 4.2.+> | NO      |
+| Xavier NX         | 4.2.+> | YES     |
 | AGX Xavier        | 4.0.+> | YES     |
 
 
@@ -30,7 +30,7 @@ The `jetson_build.sh` script operations can be broken down into the follow steps
 The ```$CUDF_HOME/jetson/jetson_build.sh``` script must always be ran as a root user. It can either be invoked as the true root user or called via ```sudo```.
 
 | Command                          | Action                                                                                                                   |
-|:-------------------------------- |-------------------------------------------------------------------------------------------------------------------------:|
+|:-------------------------------- |:--------------------------------------------------------------------------------------------------------------------------|
 | ./jetson_build.sh                | Performs the default Jetson build. Install dependencies, prepares environment, and build cuDF                            |
 | ./jetson_build.sh clean          | Remove any components from previous runs and then exits the script. Nothing more is done                                 |
 | ./jetson_build.sh clean cudf     | Remove any components from previous runs and then exits the script. Anytime `clean` is specified nothing further is done |
