@@ -18,8 +18,8 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libnvstrings nvstrings libcudf cudf dask_cudf benchmarks tests -v -g -n -l --allgpuarch --disable_nvtx --show_depr_warn -h"
-HELP="$0 [clean] [libcudf] [cudf] [dask_cudf] [benchmarks] [tests] [-v] [-g] [-n] [-h] [-l]
+VALIDARGS="clean libnvstrings nvstrings libcudf cudf dask_cudf custreamz benchmarks tests -v -g -n -l --allgpuarch --disable_nvtx --show_depr_warn -h"
+HELP="$0 [clean] [libcudf] [cudf] [dask_cudf] [custreamz] [benchmarks] [tests] [-v] [-g] [-n] [-h] [-l]
    clean            - remove all existing build artifacts and configuration (start
                       over)
    libnvstrings     - build the nvstrings C++ code only
@@ -27,6 +27,7 @@ HELP="$0 [clean] [libcudf] [cudf] [dask_cudf] [benchmarks] [tests] [-v] [-g] [-n
    libcudf          - build the cudf C++ code only
    cudf             - build the cudf Python package
    dask_cudf        - build the dask_cudf Python package
+   custreamz        - build the custreamz Python package
    benchmarks       - build benchmarks
    tests            - build tests
    -v               - verbose build mode
@@ -45,7 +46,8 @@ LIB_BUILD_DIR=${REPODIR}/cpp/build
 NVSTRINGS_BUILD_DIR=${REPODIR}/python/nvstrings/build
 CUDF_BUILD_DIR=${REPODIR}/python/cudf/build
 DASK_CUDF_BUILD_DIR=${REPODIR}/python/dask_cudf/build
-BUILD_DIRS="${LIB_BUILD_DIR} ${NVSTRINGS_BUILD_DIR} ${CUDF_BUILD_DIR} ${DASK_CUDF_BUILD_DIR}"
+CUSTREAMZ_BUILD_DIR=${REPODIR}/python/custreamz/build
+BUILD_DIRS="${LIB_BUILD_DIR} ${NVSTRINGS_BUILD_DIR} ${CUDF_BUILD_DIR} ${DASK_CUDF_BUILD_DIR} ${CUSTREAMZ_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
 VERBOSE=""
@@ -222,5 +224,17 @@ if buildAll || hasArg dask_cudf; then
         python setup.py install --single-version-externally-managed --record=record.txt
     else
         python setup.py build_ext --inplace
+    fi
+fi
+
+# Build and install the custreamz Python package
+if buildAll || hasArg custreamz; then
+
+    cd ${REPODIR}/python/custreamz
+    if [[ ${INSTALL_TARGET} != "" ]]; then
+        python setup.py build_ext --inplace
+        python setup.py install --single-version-externally-managed --record=record.txt
+    else
+        python setup.py build_ext --inplace --library-dir=${CUSTREAMZ_BUILD_DIR}
     fi
 fi
