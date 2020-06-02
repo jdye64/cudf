@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-import cython
 import rmm
 
 import cudf
@@ -28,7 +27,6 @@ from cudf._lib.cpp.column.column_view cimport column_view
 cimport cudf._lib.cpp.types as libcudf_types
 
 
-@cython.auto_pickle(True)
 cdef class Column:
     """
     A Column stores columnar data in device memory.
@@ -47,11 +45,14 @@ cdef class Column:
             object dtype,
             object mask=None,
             int offset=0,
+            object null_count=None,
             object children=()
     ):
-        self._offset = offset
+
         self._size = size
         self._dtype = dtype
+        self._offset = offset
+        self._null_count = null_count
         self.set_base_children(children)
         self.set_base_data(data)
         self.set_base_mask(mask)
@@ -377,6 +378,7 @@ cdef class Column:
 
         size = c_col.get()[0].size()
         dtype = cudf_to_np_types[c_col.get()[0].type().id()]
+
         has_nulls = c_col.get()[0].has_nulls()
 
         # After call to release(), c_col is unusable
@@ -388,8 +390,10 @@ cdef class Column:
         if has_nulls:
             mask = DeviceBuffer.c_from_unique_ptr(move(contents.null_mask))
             mask = Buffer(mask)
+            null_count = c_col.get()[0].null_count()
         else:
             mask = None
+            null_count = 0
 
         cdef vector[unique_ptr[column]] c_children = move(contents.children)
         children = ()
@@ -401,6 +405,7 @@ cdef class Column:
             data,
             dtype=dtype,
             mask=mask,
+            null_count=null_count,
             children=children
         )
 
@@ -415,6 +420,7 @@ cdef class Column:
         ``None``, we allocate new memory for the resulting ``cudf.Column``.
         """
         column_owner = isinstance(owner, Column)
+        mask_owner = owner
         if column_owner and is_categorical_dtype(owner.dtype):
             owner = owner.base_children[0]
 
@@ -449,9 +455,8 @@ cdef class Column:
         mask_ptr = <uintptr_t>(cv.null_mask())
         mask = None
         if mask_ptr:
-            mask_owner = owner
             if column_owner:
-                mask_owner = owner.base_mask
+                mask_owner = mask_owner.base_mask
             if mask_owner is None:
                 mask = Buffer(
                     rmm.DeviceBuffer(
@@ -465,6 +470,11 @@ cdef class Column:
                     size=bitmask_allocation_size_bytes(base_size),
                     owner=mask_owner
                 )
+
+        if cv.has_nulls():
+            null_count = cv.null_count()
+        else:
+            null_count = 0
 
         children = []
         for child_index in range(cv.num_children()):
@@ -485,6 +495,7 @@ cdef class Column:
             mask,
             size,
             offset,
+            null_count,
             tuple(children)
         )
 

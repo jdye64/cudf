@@ -4,9 +4,8 @@ import numpy as np
 import pandas as pd
 
 import cudf
-from cudf.core import DataFrame, Index, RangeIndex, Series
+from cudf.core import DataFrame, Index, Series
 from cudf.core.column import as_column, build_categorical_column
-from cudf.core.index import as_index
 from cudf.utils import cudautils
 from cudf.utils.dtypes import is_categorical_dtype, is_list_like
 
@@ -35,15 +34,14 @@ def concat(objs, axis=0, ignore_index=False, sort=None):
     if not objs:
         raise ValueError("Need at least one object to concatenate")
 
-    # no-op for single object
+    objs = [obj for obj in objs if obj is not None]
+
+    # Return for single object
     if len(objs) == 1:
         return objs[0]
 
-    # convert any RangeIndex
-    objs = [
-        as_index(obj._values) if isinstance(obj, RangeIndex) else obj
-        for obj in objs
-    ]
+    if len(objs) == 0:
+        raise ValueError("All objects passed were None")
 
     typs = set(type(o) for o in objs)
     allowed_typs = {Series, DataFrame}
@@ -90,7 +88,7 @@ def concat(objs, axis=0, ignore_index=False, sort=None):
         for o in objs[1:]:
             result_columns = result_columns.append(o.columns)
 
-        df.columns = result_columns.unique()
+        df.columns = result_columns
         return df
 
     typ = list(typs)[0]
@@ -419,7 +417,7 @@ def merge_sorted(
 
     Returns
     -------
-    A new, lexocographically sorted, DataFrame/Series.
+    A new, lexicographically sorted, DataFrame/Series.
     """
 
     if not pd.api.types.is_list_like(objs):

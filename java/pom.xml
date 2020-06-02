@@ -21,7 +21,7 @@
 
     <groupId>ai.rapids</groupId>
     <artifactId>cudf</artifactId>
-    <version>0.14-SNAPSHOT</version>
+    <version>0.15-SNAPSHOT</version>
 
     <name>cudfjni</name>
     <description>
@@ -143,7 +143,9 @@
         <native.build.path>${basedir}/target/cmake-build</native.build.path>
         <skipNativeCopy>false</skipNativeCopy>
         <cxx11.abi.value>ON</cxx11.abi.value>
+        <cxx.flags/>
         <CUDA_STATIC_RUNTIME>OFF</CUDA_STATIC_RUNTIME>
+        <PER_THREAD_DEFAULT_STREAM>OFF</PER_THREAD_DEFAULT_STREAM>
     </properties>
 
     <profiles>
@@ -151,6 +153,12 @@
             <id>abiOff</id>
             <properties>
                 <cxx11.abi.value>OFF</cxx11.abi.value>
+            </properties>
+        </profile>
+        <profile>
+            <id>no-cxx-deprecation-warnings</id>
+            <properties>
+                <cxx.flags>-Wno-deprecated-declarations</cxx.flags>
             </properties>
         </profile>
         <profile>
@@ -333,7 +341,9 @@
                                       executable="cmake">
                                     <arg value="${basedir}/src/main/native"/>
                                     <arg value="-DCUDA_STATIC_RUNTIME=${CUDA_STATIC_RUNTIME}" />
+                                    <arg value="-DPER_THREAD_DEFAULT_STREAM=${PER_THREAD_DEFAULT_STREAM}" />
                                     <arg value="-DCMAKE_CXX11_ABI=${cxx11.abi.value}"/>
+                                    <arg value="-DCMAKE_CXX_FLAGS=${cxx.flags}"/>
                                 </exec>
                                 <exec dir="${native.build.path}"
                                       failonerror="true"
@@ -403,6 +413,10 @@
                             } else {
                                 pom.properties['cuda.classifier'] = ''
                             }
+
+                            if (pom.properties['CUDA_STATIC_RUNTIME'] == 'ON') {
+                                println 'WARNING RUNNING WITH STATIC LINKING DOES NOT FULLY WORK. USE WITH CAUTION.'
+                            }
                             </source>
                         </configuration>
                     </execution>
@@ -414,22 +428,6 @@
                 <configuration>
                     <!--Set by groovy script-->
                     <classifier>${cuda.classifier}</classifier>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>native-maven-plugin</artifactId>
-                <version>1.0-alpha-8</version>
-                <extensions>true</extensions>
-
-                <configuration>
-                    <javahClassNames>
-                        <javahClassName>ai.rapids.cudf.Cuda</javahClassName>
-                        <javahClassName>ai.rapids.cudf.ColumnVector</javahClassName>
-                        <javahClassName>ai.rapids.cudf.Table</javahClassName>
-                        <javahClassName>ai.rapids.cudf.Rmm</javahClassName>
-                    </javahClassNames>
-                    <javahOutputDirectory>${basedir}/src/main/native/include/</javahOutputDirectory>
                 </configuration>
             </plugin>
             <plugin>
@@ -469,8 +467,6 @@
                                     <directory>${native.cudf.path}</directory>
                                     <includes>
                                         <include>libcudf.so</include>
-                                        <include>libNVCategory.so</include>
-                                        <include>libNVStrings.so</include>
                                     </includes>
                                 </resource>
                                 <resource>

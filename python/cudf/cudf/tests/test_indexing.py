@@ -117,6 +117,16 @@ def test_series_indexing(i1, i2, i3):
             assert series[i] == a1[i]
 
 
+def test_series_indexing_large_size():
+    n_elem = 100_000
+    gsr = cudf.Series(cupy.ones(n_elem))
+    gsr[0] = None
+    got = gsr[gsr.isna()]
+    expect = Series([None], dtype="float64")
+
+    assert_eq(expect, got)
+
+
 @pytest.mark.parametrize("psr", [pd.Series([1, 2, 3], index=["a", "b", "c"])])
 @pytest.mark.parametrize(
     "arg", ["b", ["a", "c"], slice(1, 2, 1), [True, False, True]]
@@ -238,6 +248,12 @@ def test_dataframe_loc(scalar, step):
     # Full slice
     assert_eq(df.loc[:, "c"], pdf.loc[:, "c"])
 
+    # Repeat with at[]
+    assert_eq(df.loc[:, ["a"]], df.at[:, ["a"]])
+    assert_eq(df.loc[:, "d"], df.at[:, "d"])
+    assert_eq(df.loc[scalar], df.at[scalar])
+    assert_eq(df.loc[:, "c"], df.at[:, "c"])
+
     begin = 110
     end = 122
 
@@ -261,6 +277,16 @@ def test_dataframe_loc(scalar, step):
         df.loc[begin, "a":"a"], pdf.loc[begin, "a":"a"], check_dtype=False
     )
 
+    # Repeat with at[]
+    assert_eq(
+        df.loc[begin:end:step, ["c", "d", "a"]],
+        df.at[begin:end:step, ["c", "d", "a"]],
+    )
+    assert_eq(df.loc[begin:end, ["c", "d"]], df.at[begin:end, ["c", "d"]])
+    assert_eq(df.loc[begin:end:step, "a":"c"], df.at[begin:end:step, "a":"c"])
+    assert_eq(df.loc[begin:begin, "a"], df.at[begin:begin, "a"])
+    assert_eq(df.loc[begin, "a":"a"], df.at[begin, "a":"a"], check_dtype=False)
+
     # Make int64 index
     offset = 50
     df2 = df[offset:]
@@ -271,6 +297,30 @@ def test_dataframe_loc(scalar, step):
         df2.loc[begin:end, ["c", "d", "a"]],
         pdf2.loc[begin:end, ["c", "d", "a"]],
     )
+
+    # loc with list like indexing
+    assert_eq(df.loc[[0]], pdf.loc[[0]])
+
+
+def test_dataframe_loc_duplicate_index_scalar():
+    pdf = pd.DataFrame({"a": [1, 2, 3, 4, 5]}, index=[1, 2, 1, 4, 2])
+    gdf = DataFrame.from_pandas(pdf)
+
+    assert_eq(pdf.loc[2], gdf.loc[2])
+
+
+@pytest.mark.parametrize(
+    "mask",
+    [[True, False, False, False, False], [True, False, True, False, True]],
+)
+@pytest.mark.parametrize("arg", ["a", slice("a", "a"), slice("a", "b")])
+def test_dataframe_loc_mask(mask, arg):
+    pdf = pd.DataFrame(
+        {"a": ["a", "b", "c", "d", "e"], "b": ["f", "g", "h", "i", "j"]}
+    )
+    gdf = DataFrame.from_pandas(pdf)
+
+    assert_eq(pdf.loc[mask, arg], gdf.loc[mask, arg])
 
 
 @pytest.mark.xfail(raises=IndexError, reason="label scalar is out of bound")
@@ -431,12 +481,12 @@ def test_dataframe_series_loc_multiindex(obj):
     gobj = cudf.from_pandas(obj)
     gindex = cudf.MultiIndex.from_pandas(pindex)
 
-    # cudf MultinIndex as arg
+    # cudf MultiIndex as arg
     expected = obj.loc[pindex]
     got = gobj.loc[gindex]
     assert_eq(expected, got)
 
-    # pandas MultinIndex as arg
+    # pandas MultiIndex as arg
     expected = obj.loc[pindex]
     got = gobj.loc[pindex]
     assert_eq(expected, got)
@@ -506,6 +556,22 @@ def test_dataframe_iloc(nelem):
     assert_eq(gdf.iloc[0], pdf.iloc[0])
     assert_eq(gdf.iloc[1], pdf.iloc[1])
     assert_eq(gdf.iloc[nelem - 1], pdf.iloc[nelem - 1])
+
+    # Repeat the above with iat[]
+    assert_eq(gdf.iloc[-1:1], gdf.iat[-1:1])
+    assert_eq(gdf.iloc[nelem - 1 : -1], gdf.iat[nelem - 1 : -1])
+    assert_eq(gdf.iloc[0 : nelem - 1], gdf.iat[0 : nelem - 1])
+    assert_eq(gdf.iloc[0:nelem], gdf.iat[0:nelem])
+    assert_eq(gdf.iloc[1:1], gdf.iat[1:1])
+    assert_eq(gdf.iloc[1:2], gdf.iat[1:2])
+    assert_eq(gdf.iloc[nelem - 1 : nelem + 1], gdf.iat[nelem - 1 : nelem + 1])
+    assert_eq(gdf.iloc[nelem : nelem * 2], gdf.iat[nelem : nelem * 2])
+
+    assert_eq(gdf.iloc[-1 * nelem], gdf.iat[-1 * nelem])
+    assert_eq(gdf.iloc[-1], gdf.iat[-1])
+    assert_eq(gdf.iloc[0], gdf.iat[0])
+    assert_eq(gdf.iloc[1], gdf.iat[1])
+    assert_eq(gdf.iloc[nelem - 1], gdf.iat[nelem - 1])
 
 
 @pytest.mark.xfail(raises=AssertionError, reason="Series.index are different")
@@ -630,6 +696,9 @@ def test_dataframe_boolean_mask_with_None():
     pdf_masked = pdf[[True, False, True, False]]
     gdf_masked = gdf[[True, False, True, False]]
     assert_eq(pdf_masked, gdf_masked)
+
+    with pytest.raises(ValueError):
+        gdf[Series([True, False, None, False])]
 
 
 @pytest.mark.parametrize("dtype", [int, float, str])
@@ -984,6 +1053,10 @@ def test_out_of_bounds_indexing():
         a[[0, 1, 9]] = 2
     with pytest.raises(IndexError):
         a[[0, 1, -4]] = 2
+    with pytest.raises(IndexError):
+        a[4:6].iloc[-1] = 2
+    with pytest.raises(IndexError):
+        a[4:6].iloc[1] = 2
 
 
 def test_sliced_indexing():

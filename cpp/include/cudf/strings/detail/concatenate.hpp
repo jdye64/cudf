@@ -15,17 +15,13 @@
  */
 #pragma once
 
-#include <cudf/strings/strings_column_view.hpp>
 #include <cudf/column/column.hpp>
+#include <cudf/strings/strings_column_view.hpp>
 #include <cudf/table/table_view.hpp>
 
-namespace cudf
-{
-namespace strings
-{
-namespace detail
-{
-
+namespace cudf {
+namespace strings {
+namespace detail {
 /**
  * @brief Returns a single column by vertically concatenating the given vector of
  * strings columns.
@@ -38,14 +34,15 @@ namespace detail
  * ```
  *
  * @param columns List of string columns to concatenate.
- * @param mr Resource for allocating device memory.
- * @param stream CUDA stream to use for any kernels in this function.
+ * @param mr Device memory resource used to allocate the returned column's device memory.
+ * @param stream CUDA stream used for device memory operations and kernel launches.
  * @return New column with concatenated results.
  */
-std::unique_ptr<column> concatenate( std::vector<column_view> const& columns,
-                                     rmm::mr::device_memory_resource* mr = rmm::mr::get_default_resource(),
-                                     cudaStream_t stream = 0 );
+std::unique_ptr<column> concatenate(
+  std::vector<column_view> const& columns,
+  rmm::mr::device_memory_resource* mr = rmm::mr::get_default_resource(),
+  cudaStream_t stream                 = 0);
 
-} // namespace detail
-} // namespace strings
-} // namespace cudf
+}  // namespace detail
+}  // namespace strings
+}  // namespace cudf
