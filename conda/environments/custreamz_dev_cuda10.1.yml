@@ -50,6 +50,7 @@ dependencies:
   - hypothesis
   - sphinx-markdown-tables
   - sphinx-copybutton
+  - cudf=0.15.*
   - custreamz
   - cudf-kafka-datasource
   - pip:
