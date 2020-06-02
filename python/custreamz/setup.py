@@ -25,10 +25,6 @@ if not CUDA_HOME:
         )
     CUDA_HOME = os.path.dirname(os.path.dirname(path_to_cuda_gdb))
 
-if not os.path.isdir(CUDA_HOME):
-    raise OSError(
-        f"Invalid CUDA_HOME: " "directory does not exist: {CUDA_HOME}"
-    )
 
 cuda_include_dir = os.path.join(CUDA_HOME, "include")
 
@@ -55,7 +51,7 @@ extensions = [
             os.path.join(os.sys.prefix, "lib"),
             external_lib_dir,
         ],
-        libraries=["cudf", "cudf_kafka"],
+        libraries=["cudf", "cudf_kafka", "cudart"],
         language="c++",
         extra_compile_args=["-std=c++14"],
     ),
