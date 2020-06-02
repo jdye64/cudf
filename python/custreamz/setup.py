@@ -51,7 +51,7 @@ extensions = [
             os.path.join(os.sys.prefix, "lib"),
             external_lib_dir,
         ],
-        libraries=["cudf", "cudf_kafka", "cudart"],
+        libraries=["cudf", "cudf_kafka"],
         language="c++",
         extra_compile_args=["-std=c++14"],
     ),
