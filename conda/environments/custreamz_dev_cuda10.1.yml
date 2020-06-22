@@ -7,6 +7,8 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  - clang=8.0.1
+  - clang-tools=8.0.1
   - cudf=0.15.*
   - custreamz=0.15.*
   - cudf-kafka-datasource=0.15.*

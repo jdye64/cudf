@@ -10,7 +10,6 @@ from pandas.api.types import is_dtype_equal
 import cudf
 import cudf._lib as libcudf
 from cudf._lib.nvtx import annotate
-from cudf._lib.scalar import as_scalar
 from cudf.core.column import as_column, build_categorical_column
 from cudf.utils.dtypes import (
     is_categorical_dtype,
@@ -883,11 +882,10 @@ class Frame(libcudf.table.Table):
             )
 
         if kwargs.get("debug", False) == 1 and map_size is not None:
-            unique_count = map_index.unique_count()
-            if map_size < unique_count:
+            count = map_index.distinct_count()
+            if map_size < count:
                 raise ValueError(
-                    "ERROR: map_size must be >= %d (got %d)."
-                    % (unique_count, map_size)
+                    f"ERROR: map_size must be >= {count} (got {map_size})."
                 )
 
         tables = self._partition(map_index, map_size, keep_index)
@@ -1140,9 +1138,7 @@ class Frame(libcudf.table.Table):
         return self._repeat(repeats)
 
     def _repeat(self, count):
-        if is_scalar(count):
-            count = as_scalar(count)
-        else:
+        if not is_scalar(count):
             count = as_column(count)
 
         result = self.__class__._from_table(

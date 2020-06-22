@@ -61,7 +61,6 @@ htmlcov/
 nosetests.xml
 coverage.xml
 junit-cudf.xml
-junit-nvstrings.xml
 *.cover
 .hypothesis/
 test-results
