@@ -195,11 +195,13 @@ std::string kafka_datasource::consume_range(std::string topic, int partition,
       messages_read++;
     } else {
       handle_error(msg);
+      delete msg;
       break;
     }
 
     remaining_timeout = end - now();
     if (remaining_timeout < 0) {
+      delete msg;
       break;
     }
 
