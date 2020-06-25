@@ -14,14 +14,7 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <map>
-#include <memory>
-#include <string>
-#include "cudf_kafka/kafka_consumer.hpp"
-
-#include <cudf/io/datasource.hpp>
-#include <cudf/io/functions.hpp>
+#include "kafka_consumer_tests.h"
 
 namespace kafka = cudf::io::external::kafka;
 
