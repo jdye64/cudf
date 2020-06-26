@@ -17,6 +17,7 @@ build:
   string: py{{ py_version }}_{{ git_revision_count }}
   script_env:
     - VERSION_SUFFIX
+    - CUDA_HOME
 
 requirements:
   build:

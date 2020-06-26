@@ -324,7 +324,6 @@ set(JSON_TEST_SRC
 ConfigureTest(CSV_TEST "${CSV_TEST_SRC}")
 ConfigureTest(ORC_TEST "${ORC_TEST_SRC}")
 ConfigureTest(PARQUET_TEST "${PARQUET_TEST_SRC}")
-ConfigureTest(EXTERNAL_DATASOURCE_TEST "${EXTERNAL_DATASOURCE_TEST_SRC}")
 
 ###################################################################################################
 # - sort tests ------------------------------------------------------------------------------------

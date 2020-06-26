@@ -209,6 +209,7 @@ if buildAll || hasArg custreamz; then
         python setup.py build_ext --inplace
         python setup.py install --single-version-externally-managed --record=record.txt
     else
+        echo "THIS IS BEING CALLED!"
         python setup.py build_ext --inplace --library-dir=${CUSTREAMZ_BUILD_DIR}
     fi
 fi

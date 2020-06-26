@@ -102,9 +102,8 @@ public:
   virtual ~kafka_datasource(){};
 
 private:
-  RdKafka::ErrorCode update_consumer_toppar_assignment(std::string topic,
-                                                       int partition,
-                                                       int64_t offset) {
+  void update_consumer_toppar_assignment(std::string topic, int partition,
+                                         int64_t offset) {
     std::vector<RdKafka::TopicPartition *> _toppars;
     _toppars.push_back(
         RdKafka::TopicPartition::create(topic, partition, offset));

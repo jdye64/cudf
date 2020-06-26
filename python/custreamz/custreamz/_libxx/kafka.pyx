@@ -110,3 +110,6 @@ cdef class librdkafka:
 
     cpdef close(self, timeout=10000):
         return self.kds.close(timeout)
+
+    def __dealloc__(self):
+        delete self.kds
