@@ -2,30 +2,30 @@
 
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
 {% set minor_version =  version.split('.')[0] + '.' + version.split('.')[1] %}
-{% set git_revision_count=environ.get('GIT_DESCRIBE_NUMBER', 0) %}
 {% set py_version=environ.get('CONDA_PY', 36) %}
 
 package:
   name: cudf-kafka-datasource
-  version: {{ version }}
+  version: 0.15.0
 
 source:
   path: ../../..
 
 build:
-  number: {{ git_revision_count }}
-  string: py{{ py_version }}_{{ git_revision_count }}
+  number: {{ GIT_DESCRIBE_NUMBER }}
+  string: py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
   script_env:
     - VERSION_SUFFIX
+    - CUDA_HOME
 
 requirements:
   build:
     - setuptools
-    - libcudf {{ version }}
-    - cudf {{ version }}
+    - libcudf 0.14.0
+    - cudf 0.14.0
   run:
-    - libcudf {{ version }}
-    - cudf {{ version }}
+    - libcudf 0.14.0
+    - cudf 0.14.0
 
 about:
   home: http://rapids.ai/

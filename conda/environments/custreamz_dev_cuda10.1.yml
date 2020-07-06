@@ -9,7 +9,7 @@ channels:
 dependencies:
   - clang=8.0.1
   - clang-tools=8.0.1
-  - cudf=0.15.*
+  - cudf=0.14.0
   - custreamz=0.15.*
   - cudf-kafka-datasource=0.15.*
   - pip:

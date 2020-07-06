@@ -39,10 +39,13 @@ extensions = [
         include_dirs=[
             "../../cpp/include/cudf",
             "../../cpp/include",
+            "../../cpp/build/include"
             "../../cpp/src/io/utilities",
             "../../cpp/build/include",
             "../../thirdparty/cub",
+            "../../cpp/build/include/libcxx",
             "../../thirdparty/libcudacxx/include",
+            "../../cpp/build/include/libcudacxx",
             "../../external/kafka/include",
             os.path.dirname(sysconfig.get_path("include")),
             np.get_include(),
