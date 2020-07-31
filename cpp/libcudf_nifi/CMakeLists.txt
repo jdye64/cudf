@@ -109,7 +109,10 @@ include_directories("${CMAKE_BINARY_DIR}/include"
                     "${CMAKE_BINARY_DIR}/include/jit"
                     "${CMAKE_SOURCE_DIR}/include"
                     "${CMAKE_SOURCE_DIR}/src"
-                    "/home/jdyer/Development/minifi/libminifi/include")
+                    "/home/jdyer/Development/minifi/libminifi/include"
+                    "${CMAKE_SOURCE_DIR}/thirdparty/gsl-lite-0.37.0/include"
+                    "${CMAKE_SOURCE_DIR}/thirdparty/optional-lite-3.2.0/include"
+                    "${CMAKE_SOURCE_DIR}/thirdparty/concurrentqueue")
 
 if(CONDA_INCLUDE_DIRS)
     include_directories("${CONDA_INCLUDE_DIRS}")

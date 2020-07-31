@@ -30,20 +30,22 @@ nifi_s2s_client::nifi_s2s_client(std::string host, int32_t port) : host(host), p
 
 std::unique_ptr<cudf::io::datasource::buffer> nifi_s2s_client::host_read(size_t offset, size_t size)
 {
-  if (offset > buffer.size()) { return 0; }
-  size = std::min(size, buffer.size() - offset);
-  return std::make_unique<non_owning_buffer>((uint8_t *)buffer.data() + offset, size);
+  // if (offset > buffer.size()) { return 0; }
+  // size = std::min(size, buffer.size() - offset);
+  // return std::make_unique<non_owning_buffer>((uint8_t *)buffer.data() + offset, size);
+  return nullptr;
 }
 
 size_t nifi_s2s_client::host_read(size_t offset, size_t size, uint8_t *dst)
 {
-  if (offset > buffer.size()) { return 0; }
-  auto const read_size = std::min(size, buffer.size() - offset);
-  memcpy(dst, buffer.data() + offset, size);
-  return read_size;
+  // if (offset > buffer.size()) { return 0; }
+  // auto const read_size = std::min(size, buffer.size() - offset);
+  // memcpy(dst, buffer.data() + offset, size);
+  // return read_size;
+  return 0;
 }
 
-size_t nifi_s2s_client::size() const { return buffer.size(); }
+size_t nifi_s2s_client::size() const { return 0; }
 
 }  // namespace nifi
 }  // namespace external
