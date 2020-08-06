@@ -17,6 +17,13 @@ cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 
 project(CUDA_KAFKA VERSION 0.15.0 LANGUAGES C CXX CUDA)
 
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    CudfKafkaConfigVersion.cmake
+    VERSION 0.15.0
+    COMPATIBILITY AnyNewerVersion
+    )
+
 # TODO: Since we have no actual CUDA code in cudf_kafka this should be removed in the future
 # in favor of using FindCUDAToolkit to get the needed CUDA include headers
 if(NOT CMAKE_CUDA_COMPILER)
@@ -154,7 +161,11 @@ include_directories("${RDKAFKA_INCLUDE}")
 target_link_libraries(cudf_kafka cudf)
 
 install(TARGETS cudf_kafka
-        DESTINATION lib)
+        EXPORT cudf_kafka
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION bin
+        INCLUDES DESTINATION include)
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include
         DESTINATION include)
