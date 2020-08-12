@@ -160,6 +160,8 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/" ${CMAKE_MODUL
 include(FeatureSummary)
 include(CheckIncludeFiles)
 include(CheckLibraryExists)
+include(CPack)
+include(CMakePackageConfigHelpers)
 
 ###################################################################################################
 # - third party dependencies-----------------------------------------------------------------------
@@ -765,9 +767,27 @@ target_link_libraries(cudf rmm arrow arrow_cuda nvrtc ${CUDART_LIBRARY} cuda ${Z
 install(TARGETS cudf
         DESTINATION lib
         COMPONENT cudf)
+
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/cudf
         DESTINATION include
         COMPONENT cudf)
+
+# install(TARGETS cudf
+#         EXPORT cudf
+#         LIBRARY DESTINATION lib
+#         ARCHIVE DESTINATION lib
+#         RUNTIME DESTINATION bin
+#         INCLUDES DESTINATION include)
+
+# write_basic_package_version_file(
+#         CudfConfigVersion.cmake
+#         VERSION 0.15.0
+#         COMPATIBILITY AnyNewerVersion)
+
+# install(EXPORT cudf
+#         FILE CudfTargets.cmake
+#         NAMESPACE CUDF::
+#         DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/")
 
 install(DIRECTORY ${CMAKE_BINARY_DIR}/include/libcxx
         DESTINATION include/libcudf
@@ -794,6 +814,17 @@ add_custom_target(test_cudf
 
 add_custom_target(build_benchmarks_cudf
                   DEPENDS ${BENCHMARK_LIST})
+
+###################################################################################################
+# - Package cudf ----------------------------------------------------------------------------------
+
+set(CPACK_GENERATOR "DEB")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "NVIDIA Corporation")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/../LICENSE")
+set(CPACK_PACKAGE_VERSION_MAJOR "0")
+set(CPACK_PACKAGE_VERSION_MINOR "15")
+set(CPACK_PACKAGE_VERSION_PATCH "0")
+
 
 ###################################################################################################
 # - make documentation ----------------------------------------------------------------------------

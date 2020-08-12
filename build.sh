@@ -17,8 +17,8 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libcudf cudf dask_cudf benchmarks tests libcudf_kafka cudf_kafka custreamz -v -g -n -l --allgpuarch --disable_nvtx --show_depr_warn --ptds -h"
-HELP="$0 [clean] [libcudf] [cudf] [dask_cudf] [benchmarks] [tests] [libcudf_kafka] [cudf_kafka] [custreamz] [-v] [-g] [-n] [-h] [-l]
+VALIDARGS="clean libcudf cudf dask_cudf benchmarks tests libcudf_kafka cudf_kafka custreamz -v -g -n -l -p --allgpuarch --disable_nvtx --show_depr_warn --ptds -h"
+HELP="$0 [clean] [libcudf] [cudf] [dask_cudf] [benchmarks] [tests] [libcudf_kafka] [cudf_kafka] [custreamz] [-v] [-g] [-n] [-h] [-l] [-p]
    clean                - remove all existing build artifacts and configuration (start
                           over)
    libcudf              - build the cudf C++ code only
@@ -33,6 +33,7 @@ HELP="$0 [clean] [libcudf] [cudf] [dask_cudf] [benchmarks] [tests] [libcudf_kafk
    -g                   - build for debug
    -n                   - no install step
    -l                   - build legacy tests
+   -p                   - package resulting build
    --allgpuarch         - build for all supported GPU architectures
    --disable_nvtx       - disable inserting NVTX profiling ranges
    --show_depr_warn     - show cmake deprecation warnings
@@ -165,6 +166,11 @@ if buildAll || hasArg libcudf; then
         make -j${PARALLEL_LEVEL} install_cudf VERBOSE=${VERBOSE}
     else
         make -j${PARALLEL_LEVEL} cudf VERBOSE=${VERBOSE}
+    fi
+
+    # Build the resulting package
+    if hasArg -p; then
+        make package
     fi
 
     if [[ ${BUILD_TESTS} == "ON" ]]; then

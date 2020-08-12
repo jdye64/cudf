@@ -63,12 +63,12 @@ option(BUILD_TESTS "Configure CMake to build tests" ON)
 ###################################################################################################
 # - cmake modules ---------------------------------------------------------------------------------
 
-message(STATUS "CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/" ${CMAKE_MODULE_PATH})
 
 include(FeatureSummary)
 include(CheckIncludeFiles)
 include(CheckLibraryExists)
+include(GNUInstallDirs)
 
 ###################################################################################################
 # - conda environment -----------------------------------------------------------------------------
@@ -167,8 +167,14 @@ install(TARGETS cudf_kafka
         RUNTIME DESTINATION bin
         INCLUDES DESTINATION include)
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include
-        DESTINATION include)
+install(DIRECTORY include/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        FILES_MATCHING PATTERN "*.hpp")
+
+install(EXPORT cudf_kafka
+        FILE CudfKafkaTargets.cmake
+        NAMESPACE CUDFKAFKA::
+        DESTINATION /home/jdyer/cmake_test)
 
 add_custom_target(build_tests_libcudf_kafka
                     DEPENDS ${CUDF_KAFKA_TEST_LIST})

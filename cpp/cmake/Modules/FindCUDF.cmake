@@ -22,16 +22,6 @@ This module defines the following variables:
 ``CUDF_VERSION_STRING``
   The version of ``cudf`` found.
 
-CUDF CMake
-^^^^^^^^^^
-
-If CURL was built using the CMake buildsystem then it provides its own
-``CURLConfig.cmake`` file for use with the :command:`find_package` command's
-config mode. This module looks for this file and, if found,
-returns its results with no further action.
-
-Set ``CURL_NO_CURL_CMAKE`` to ``ON`` to disable this search.
-
 #]=======================================================================]
 
 include(${CMAKE_CURRENT_LIST_DIR}/FindPackageHandleStandardArgs.cmake)
