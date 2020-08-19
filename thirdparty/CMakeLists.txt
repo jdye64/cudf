@@ -81,3 +81,61 @@ set(LIBCUDACXX_DIR "${libcudacxx_SOURCE_DIR}" PARENT_SCOPE)
 set(LIBCUDACXX_INCLUDE_DIR "${libcudacxx_SOURCE_DIR}/include/" PARENT_SCOPE)
 set(LIBCXX_DIR "${libcudacxx_SOURCE_DIR}/libcxx/" PARENT_SCOPE)
 set(LIBCXX_INCLUDE_DIR "${libcudacxx_SOURCE_DIR}/libcxx/include/" PARENT_SCOPE)
+
+
+###################################################################################################
+# - boost -----------------------------------------------------------------------------------------
+
+message("Fetching boost")
+
+FetchContent_Declare(
+    boost
+    GIT_REPOSITORY https://github.com/rapidsai/thirdparty-freestanding.git
+    GIT_TAG        cudf
+    GIT_SHALLOW    true
+)
+
+FetchContent_GetProperties(boost)
+if(NOT boost_POPULATED)
+  FetchContent_Populate(boost)
+endif()
+set(BOOST_DIR "${boost_SOURCE_DIR}" PARENT_SCOPE)
+set(BOOST_INCLUDE_DIRS "${boost_SOURCE_DIR}/include/" PARENT_SCOPE)
+
+#####################################################################################################
+# - rmm ---------------------------------------------------------------------------------------------
+
+message("Fetching RMM")
+
+FetchContent_Declare(
+  rmm
+  GIT_REPOSITORY https://github.com/rapidsai/rmm.git
+  GIT_TAG        branch-0.16
+  GIT_SHALLOW    true
+)
+
+FetchContent_GetProperties(rmm)
+if(NOT rmm_POPULATED)
+  FetchContent_Populate(rmm)
+endif()
+set(RMM_DIR "${rmm_SOURCE_DIR}" PARENT_SCOPE)
+set(RMM_INCLUDE "${rmm_SOURCE_DIR}/include/" PARENT_SCOPE)
+
+#####################################################################################################
+# - dlpack ------------------------------------------------------------------------------------------
+
+message("Fetch DLPACK")
+
+FetchContent_Declare(
+  dlpack
+  GIT_REPOSITORY https://github.com/dmlc/dlpack.git
+  GIT_TAG        master
+  GIT_SHALLOW    true
+)
+
+FetchContent_GetProperties(dlpack)
+if(NOT dlpack_POPULATED)
+  FetchContent_Populate(dlpack)
+endif()
+set(DLPACK_DIR "${dlpack_SOURCE_DIR}" PARENT_SCOPE)
+set(DLPACK_INCLUDE "${dlpack_SOURCE_DIR}/include/" PARENT_SCOPE)

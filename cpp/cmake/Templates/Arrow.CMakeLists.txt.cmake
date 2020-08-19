@@ -9,4 +9,4 @@ ExternalProject_Add(Arrow
     SOURCE_SUBDIR     "cpp"
     BINARY_DIR        "${ARROW_ROOT}/build"
     INSTALL_DIR       "${ARROW_ROOT}/install"
-    CMAKE_ARGS        ${ARROW_CMAKE_ARGS} -DCMAKE_INSTALL_PREFIX=${ARROW_ROOT}/install)
+    CMAKE_ARGS        ${ARROW_CMAKE_ARGS} -DARROW_CPU_FLAG=armv8 -DCMAKE_INSTALL_PREFIX=${ARROW_ROOT}/install)

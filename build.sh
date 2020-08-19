@@ -17,8 +17,8 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libcudf cudf dask_cudf benchmarks tests libcudf_kafka cudf_kafka custreamz -v -g -n -l --allgpuarch --disable_nvtx --show_depr_warn --ptds -h"
-HELP="$0 [clean] [libcudf] [cudf] [dask_cudf] [benchmarks] [tests] [libcudf_kafka] [cudf_kafka] [custreamz] [-v] [-g] [-n] [-h] [-l]
+VALIDARGS="clean libcudf cudf dask_cudf benchmarks tests libcudf_kafka cudf_kafka custreamz -xavier -v -g -n -l --allgpuarch --disable_nvtx --show_depr_warn --ptds -h"
+HELP="$0 [clean] [libcudf] [cudf] [dask_cudf] [benchmarks] [tests] [libcudf_kafka] [cudf_kafka] [custreamz] [-xavier] [-v] [-g] [-n] [-h] [-l]
    clean                - remove all existing build artifacts and configuration (start
                           over)
    libcudf              - build the cudf C++ code only
@@ -29,6 +29,7 @@ HELP="$0 [clean] [libcudf] [cudf] [dask_cudf] [benchmarks] [tests] [libcudf_kafk
    libcudf_kafka        - build the libcudf_kafka C++ code only
    cudf_kafka           - build the cudf_kafka Python package
    custreamz            - build the custreamz Python package
+   -xavier              - cross compile targets for Jetson Xavier
    -v                   - verbose build mode
    -g                   - build for debug
    -n                   - no install step
@@ -143,12 +144,35 @@ else
 fi
 
 ################################################################################
+# Prepare for Xavier build
+
+# if hasArg -xavier; then
+#     echo "Building with Xavier support"
+#     echo "Downloading Xavier toolchain"
+#     http://publishing-ie-linaro-org.s3.amazonaws.com/releases/components/toolchain/binaries/7.3-2018.05/aarch64-linux-gnu/gcc-linaro-7.3.1-2018.05-x86_64_aarch64-linux-gnu.tar.xz?Signature=jg3V4ksCt1tRwnG5o4L0hsHo92E%3D&Expires=1597704842&AWSAccessKeyId=AKIAIELXV2RYNAHFUP7A
+#     https://anaconda.org/conda-forge/boost-cpp/1.73.0/download/linux-aarch64/boost-cpp-1.73.0-h9359b55_3.tar.bz2
+# fi
+
+################################################################################
 # Configure, build, and install libcudf
 
 if buildAll || hasArg libcudf; then
     mkdir -p ${LIB_BUILD_DIR}
     cd ${LIB_BUILD_DIR}
-    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+
+    if hasArg -xavier; then
+        cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+          -DCMAKE_CXX11_ABI=ON \
+          ${GPU_ARCH} \
+          -DUSE_NVTX=${BUILD_NVTX} \
+          -DBUILD_BENCHMARKS=${BUILD_BENCHMARKS} \
+          -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
+          -DPER_THREAD_DEFAULT_STREAM=${BUILD_PER_THREAD_DEFAULT_STREAM} \
+          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+          -DCMAKE_TOOLCHAIN_FILE=${REPODIR}/cpp/cmake/Toolchains/Xavier.cmake \
+          -DARROW_CPU_FLAG=armv8 $REPODIR/cpp
+    else
+        cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DCMAKE_CXX11_ABI=ON \
           ${GPU_ARCH} \
           -DUSE_NVTX=${BUILD_NVTX} \
@@ -156,6 +180,7 @@ if buildAll || hasArg libcudf; then
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
           -DPER_THREAD_DEFAULT_STREAM=${BUILD_PER_THREAD_DEFAULT_STREAM} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} $REPODIR/cpp
+    fi
 fi
 
 if buildAll || hasArg libcudf; then
