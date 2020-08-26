@@ -124,7 +124,7 @@ set(RMM_INCLUDE "${rmm_SOURCE_DIR}/include/" PARENT_SCOPE)
 #####################################################################################################
 # - dlpack ------------------------------------------------------------------------------------------
 
-message("Fetch DLPACK")
+message("Fetching DLPACK")
 
 FetchContent_Declare(
   dlpack
@@ -139,3 +139,23 @@ if(NOT dlpack_POPULATED)
 endif()
 set(DLPACK_DIR "${dlpack_SOURCE_DIR}" PARENT_SCOPE)
 set(DLPACK_INCLUDE "${dlpack_SOURCE_DIR}/include/" PARENT_SCOPE)
+
+
+#######################################################################################################
+# - utf8proc ------------------------------------------------------------------------------------------
+
+message("Fetching utf8proc")
+
+FetchContent_Declare(
+  utf8proc
+  GIT_REPOSITORY https://github.com/JuliaStrings/utf8proc.git
+  GIT_TAG master
+  GIT_SHALLOW true
+)
+
+FetchContent_GetProperties(utf8proc)
+if(NOT utf8proc)
+  FetchContent_Populate(utf8proc)
+endif()
+set(UTF8PROC_DIR "${utf8proc_SOURCE_DIR}" PARENT_SCOPE)
+set(UTF8PROC_INCLUDE_DIR "${utf8proc_SOURCE_DIR}/" PARENT_SCOPE)
