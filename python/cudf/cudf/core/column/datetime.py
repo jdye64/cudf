@@ -179,16 +179,6 @@ class DatetimeColumn(column.ColumnBase):
         else:
             return column.column_empty(0, dtype="object", masked=False)
 
-    def to_pandas(self, index=None, nullable_pd_dtype=False):
-        if nullable_pd_dtype:
-            raise NotImplementedError(
-                f"nullable_pd_dtype=True is not supported for {self.dtype}"
-            )
-
-        return pd.Series(
-            self.to_array(fillna="pandas").astype(self.dtype), index=index
-        )
-
     def to_arrow(self):
         mask = None
         if self.nullable:
@@ -269,7 +259,7 @@ class DatetimeColumn(column.ColumnBase):
         Returns offset of first value that matches
         """
         value = pd.to_datetime(value)
-        value = column.as_column(value).as_numerical[0]
+        value = column.as_column(value, dtype=self.dtype).as_numerical[0]
         return self.as_numerical.find_first_value(value, closest=closest)
 
     def find_last_value(self, value, closest=False):
@@ -277,7 +267,7 @@ class DatetimeColumn(column.ColumnBase):
         Returns offset of last value that matches
         """
         value = pd.to_datetime(value)
-        value = column.as_column(value).as_numerical[0]
+        value = column.as_column(value, dtype=self.dtype).as_numerical[0]
         return self.as_numerical.find_last_value(value, closest=closest)
 
     @property
@@ -307,8 +297,12 @@ class DatetimeColumn(column.ColumnBase):
 
             max_int = np.iinfo(np.dtype("int64")).max
 
-            max_dist = self.max().astype(np.timedelta64, copy=False)
-            min_dist = self.min().astype(np.timedelta64, copy=False)
+            max_dist = np.timedelta64(
+                self.max().astype(np.dtype("int64"), copy=False), self_res
+            )
+            min_dist = np.timedelta64(
+                self.min().astype(np.dtype("int64"), copy=False), self_res
+            )
 
             self_delta_dtype = np.timedelta64(0, self_res).dtype
 
