@@ -52,6 +52,22 @@ class CudfKafkaClient:
         self.kafka_meta_client.close(timeout)
 
 
+# Apache Kafka Producer implementation
+class Producer(CudfKafkaClient):
+    def __init__(self, kafka_configs):
+        print("Creating CUDF Producer for Kafka")
+
+    def flush(self):
+        print("Flushing ....")
+
+    def __len__(self):
+        print("Producer: Getting length ....")
+        return
+
+    def poll(self):
+        print("Polling ....")
+
+
 # Apache Kafka Consumer implementation
 class Consumer(CudfKafkaClient):
     def __init__(self, kafka_configs):
@@ -71,6 +87,38 @@ class Consumer(CudfKafkaClient):
         """
 
         super().__init__(kafka_configs)
+
+    def assignment(self):
+        """
+        Get the set of partitions currently assigned to this consumer.
+        If partitions were directly assigned using ``assign()``, then this will
+        simply return the same partitions that were previously assigned.
+        If topics were subscribed using ``subscribe()``, then this will give
+        the set of topic partitions currently assigned to the consumer (which
+        may be empty if the assignment hasn't happened yet or if the partitions
+        are in the process of being reassigned).
+        Returns:
+            set: {TopicPartition, ...}
+        """
+        # Obviously this is BS for now but just testing ....
+        toppars = set()
+        toppars.add(ck.TopicPartition("apache_logs", 1, 0,))
+        return toppars
+
+    def seek(self, topic_partition):
+        print(f"kafka.py seeking; TopicPartition: {topic_partition}")
+
+    def subscribe(self, topics=None, on_assign=None, on_revoke=None):
+        print(
+            f"Consumer subscribing .... topics type: {type(topics)}; {topics}"
+        )
+        print(f"on_assign type: {type(on_assign)} {on_assign}")
+        print("Invoking the on_assign method manually")
+        tps = [ck.TopicPartition("apache_logs", 1, 0)]
+        on_assign(self.kafka_meta_client, tps)
+
+    def poll(self, timeout=1):
+        print("Polling Consumer object ....")
 
     def read_gdf(
         self,

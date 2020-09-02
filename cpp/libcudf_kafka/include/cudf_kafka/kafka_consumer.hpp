@@ -103,6 +103,15 @@ class kafka_consumer : public cudf::io::datasource {
   size_t host_read(size_t offset, size_t size, uint8_t *dst) override;
 
   /**
+   * @brief Gets the current TopicPartition assignment for the underlying consumer
+   *
+   * @throws cudf::logic_error on failure to retrieve current assignment from consumer
+   *
+   * @return Vector of TopicPartition assignments
+   */
+  // std::vector<std::unique_ptr<RdKafka::TopicPartition>> assignment() override;
+
+  /**
    * @brief Commits an offset to a specified Kafka Topic/Partition instance
    *
    * @throws cudf::logic_error on failure to commit the partition offset
