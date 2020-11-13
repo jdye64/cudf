@@ -5,8 +5,22 @@ from libcpp.map cimport map
 from libc.stdint cimport int32_t, int64_t
 from libcpp cimport bool
 from cudf._lib.cpp.io.types cimport datasource
+from cudf._lib.cpp.io.types cimport data_sink
 from libcpp.memory cimport unique_ptr, make_unique
 from cudf_kafka._lib.kafka cimport kafka_consumer
+from cudf_kafka._lib.kafka cimport kafka_producer
+
+
+cdef class KafkaDatasink(Datasink):
+
+    def __cinit__(self,
+                  map[string, string] kafka_configs,):
+        self.c_datasink = <unique_ptr[data_sink]> \
+            make_unique[kafka_producer](kafka_configs)
+
+    cdef data_sink* get_datasink(self) nogil:
+        return <data_sink *> self.c_datasink.get()
+
 
 cdef class KafkaDatasource(Datasource):
 

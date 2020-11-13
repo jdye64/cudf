@@ -6,8 +6,10 @@ from libcpp.map cimport map
 from libcpp cimport bool
 from libc.stdint cimport int32_t, int64_t
 from cudf._lib.cpp.io.types cimport datasource
+from cudf._lib.cpp.io.types cimport data_sink
 from libcpp.memory cimport unique_ptr
 from cudf._lib.io.datasource cimport Datasource
+from cudf._lib.io.datasink cimport Datasink
 
 
 cdef extern from "kafka_consumer.hpp" \
@@ -44,6 +46,22 @@ cdef extern from "kafka_consumer.hpp" \
         void unsubscribe() except +
 
         void close(int32_t timeout) except +
+
+
+cdef extern from "kafka_producer.hpp" \
+        namespace "cudf::io::external::kafka" nogil:
+
+    cpdef cppclass kafka_producer:
+
+        kafka_producer(map[string, string] configs) except +
+
+
+cdef class KafkaDatasink(Datasink):
+
+    cdef unique_ptr[data_sink] c_datasink
+
+    cdef data_sink* get_datasink(self) nogil
+
 
 cdef class KafkaDatasource(Datasource):
 

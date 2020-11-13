@@ -136,6 +136,7 @@
  * @}
  * @defgroup io_apis IO
  * @{
+ *   @defgroup io_datasinks DataSinks
  *   @defgroup io_datasources Datasources
  *   @defgroup io_readers Readers
  *   @defgroup io_writers Writers

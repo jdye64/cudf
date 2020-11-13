@@ -168,10 +168,7 @@ class Consumer(CudfKafkaClient):
 
         # Close up the cudf datasource instance
         # TODO: Ideally the C++ destructor should handle the
-        # unsubscribe and closing the socket connection.
-        kafka_datasource.unsubscribe()
-        kafka_datasource.close(batch_timeout)
-
+        # Apache Kafka Consumer implementation
         if result is not None:
             return cudf.DataFrame._from_table(result)
         else:
@@ -281,3 +278,23 @@ class Consumer(CudfKafkaClient):
             self.kafka_meta_client.commit_offset(
                 offs.topic.encode(), offs.partition, offs.offset
             )
+
+
+# Apache Kafka Producer implementation
+class Producer(CudfKafkaClient):
+    def __init__(self, kafka_configs):
+
+        """
+        Creates a KafkaProducer object which allows for writing
+         messages to Kafka
+
+        Parameters
+        ----------
+        kafka_configs : dict,
+            Dict of Key/Value pairs of librdkafka
+            configuration values. Full list of valid configuration
+            options can be found at
+            https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md
+        """
+
+        super().__init__(kafka_configs)

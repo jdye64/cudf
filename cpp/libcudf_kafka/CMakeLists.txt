@@ -132,6 +132,7 @@ endif(CONDA_LINK_DIRS)
 
 add_library(cudf_kafka SHARED
     src/kafka_consumer.cpp
+    src/kafka_producer.cpp
 )
 
 set_target_properties(cudf_kafka PROPERTIES BUILD_RPATH "\$ORIGIN")
