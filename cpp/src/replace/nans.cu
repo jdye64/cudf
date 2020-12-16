@@ -63,6 +63,7 @@ struct replace_nans_functor {
                             input_pair_iterator + size,
                             replacement_pair_iterator,
                             predicate,
+                            input.type(),
                             stream,
                             mr);
       } else {
@@ -72,6 +73,7 @@ struct replace_nans_functor {
                             input_pair_iterator + size,
                             replacement_pair_iterator,
                             predicate,
+                            input.type(),
                             stream,
                             mr);
       }
@@ -84,6 +86,7 @@ struct replace_nans_functor {
                             input_pair_iterator + size,
                             replacement_pair_iterator,
                             predicate,
+                            input.type(),
                             stream,
                             mr);
       } else {
@@ -93,6 +96,7 @@ struct replace_nans_functor {
                             input_pair_iterator + size,
                             replacement_pair_iterator,
                             predicate,
+                            input.type(),
                             stream,
                             mr);
       }
@@ -180,7 +184,7 @@ struct normalize_nans_and_zeros_kernel_forwarder {
                   cudf::mutable_column_device_view out,
                   rmm::cuda_stream_view stream)
   {
-    thrust::transform(rmm::exec_policy(stream)->on(stream.value()),
+    thrust::transform(rmm::exec_policy(stream),
                       thrust::make_counting_iterator(0),
                       thrust::make_counting_iterator(in.size()),
                       out.head<T>(),

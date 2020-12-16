@@ -24,9 +24,9 @@
 #include <cudf/null_mask.hpp>
 #include <cudf/strings/strings_column_view.hpp>
 
-#include <rmm/thrust_rmm_allocator.h>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>
+#include <rmm/device_vector.hpp>
 
 #include <algorithm>
 #include <cstring>
@@ -38,6 +38,13 @@ namespace detail {
 namespace orc {
 using namespace cudf::io::orc;
 using namespace cudf::io;
+
+struct row_group_index_info {
+  int32_t pos       = -1;  // Position
+  int32_t blk_pos   = -1;  // Block Position
+  int32_t comp_pos  = -1;  // Compressed Position
+  int32_t comp_size = -1;  // Compressed size
+};
 
 namespace {
 /**
@@ -108,11 +115,14 @@ __global__ void stringdata_to_nvstrdesc(gpu::nvstrdesc_s *dst,
                                         const size_type *offsets,
                                         const char *strdata,
                                         const uint32_t *nulls,
+                                        const size_type column_offset,
                                         size_type column_size)
 {
   size_type row = blockIdx.x * blockDim.x + threadIdx.x;
   if (row < column_size) {
-    uint32_t is_valid = (nulls) ? (nulls[row >> 5] >> (row & 0x1f)) & 1 : 1;
+    uint32_t is_valid = (nulls != nullptr)
+                          ? (nulls[(row + column_offset) / 32] >> ((row + column_offset) % 32)) & 1
+                          : 1;
     size_t count;
     const char *ptr;
     if (is_valid) {
@@ -151,6 +161,7 @@ class orc_column_view {
       _null_count(col.null_count()),
       _data(col.head<uint8_t>() + col.offset() * _type_width),
       _nulls(col.nullable() ? col.null_mask() : nullptr),
+      _column_offset(col.offset()),
       _clockscale(to_clockscale<uint8_t>(col.type().id())),
       _type_kind(to_orc_type(col.type().id()))
   {
@@ -163,6 +174,7 @@ class orc_column_view {
         view.offsets().data<size_type>() + view.offset(),
         view.chars().data<char>(),
         _nulls,
+        _column_offset,
         _data_count);
       _data = _indexes.data();
 
@@ -217,6 +229,7 @@ class orc_column_view {
   bool nullable() const noexcept { return (_nulls != nullptr); }
   void const *data() const noexcept { return _data; }
   uint32_t const *nulls() const noexcept { return _nulls; }
+  size_type column_offset() const noexcept { return _column_offset; }
   uint8_t clockscale() const noexcept { return _clockscale; }
 
   void set_orc_encoding(ColumnEncodingKind e) { _encoding_kind = e; }
@@ -230,12 +243,13 @@ class orc_column_view {
   size_t _str_id    = 0;
   bool _string_type = false;
 
-  size_t _type_width     = 0;
-  size_t _data_count     = 0;
-  size_t _null_count     = 0;
-  void const *_data      = nullptr;
-  uint32_t const *_nulls = nullptr;
-  uint8_t _clockscale    = 0;
+  size_t _type_width       = 0;
+  size_t _data_count       = 0;
+  size_t _null_count       = 0;
+  void const *_data        = nullptr;
+  uint32_t const *_nulls   = nullptr;
+  size_type _column_offset = 0;
+  uint8_t _clockscale      = 0;
 
   // ORC-related members
   std::string _name{};
@@ -270,6 +284,7 @@ void writer::impl::init_dictionaries(orc_column_view *columns,
     for (size_t g = 0; g < num_rowgroups; g++) {
       auto *ck              = &dict[g * str_col_ids.size() + i];
       ck->valid_map_base    = str_column.nulls();
+      ck->column_offset     = str_column.column_offset();
       ck->column_data_base  = str_column.data();
       ck->dict_data         = dict_data + i * num_rows + g * row_index_stride_;
       ck->dict_index        = dict_index + i * num_rows;  // Indexed by abs row
@@ -572,12 +587,14 @@ rmm::device_buffer writer::impl::encode_columns(orc_column_view *columns,
       ck->type_kind     = columns[i].orc_kind();
       if (ck->type_kind == TypeKind::STRING) {
         ck->valid_map_base   = columns[i].nulls();
+        ck->column_offset    = columns[i].column_offset();
         ck->column_data_base = (ck->encoding_kind == DICTIONARY_V2)
                                  ? columns[i].host_stripe_dict(stripe_id)->dict_index
                                  : columns[i].data();
         ck->dtype_len = 1;
       } else {
         ck->valid_map_base   = columns[i].nulls();
+        ck->column_offset    = columns[i].column_offset();
         ck->column_data_base = columns[i].data();
         ck->dtype_len        = columns[i].type_width();
       }
@@ -753,6 +770,7 @@ std::vector<std::vector<uint8_t>> writer::impl::gather_statistic_blobs(
     desc->num_rows         = columns[i].data_count();
     desc->num_values       = columns[i].data_count();
     desc->valid_map_base   = columns[i].nulls();
+    desc->column_offset    = columns[i].column_offset();
     desc->column_data_base = columns[i].data();
     if (desc->stats_dtype == dtype_timestamp64) {
       // Timestamp statistics are in milliseconds
@@ -858,36 +876,37 @@ void writer::impl::write_index_stream(int32_t stripe_id,
                                       std::vector<Stream> &streams,
                                       ProtobufWriter *pbw)
 {
-  // 0: position, 1: block position, 2: compressed position, 3: compressed size
-  std::array<int32_t, 4> present;
-  std::array<int32_t, 4> data;
-  std::array<int32_t, 4> data2;
+  row_group_index_info present;
+  row_group_index_info data;
+  row_group_index_info data2;
   auto kind = TypeKind::STRUCT;
 
   auto find_record = [=, &strm_desc](gpu::EncChunk const &chunk, gpu::StreamIndexType type) {
-    std::array<int32_t, 4> record{-1, -1, -1, -1};
+    row_group_index_info record;
     if (chunk.strm_id[type] > 0) {
-      record[0] = 0;
+      record.pos = 0;
       if (compression_kind_ != NONE) {
         const auto *ss =
           &strm_desc[stripe_id * num_data_streams + chunk.strm_id[type] - (num_columns + 1)];
-        record[1] = ss->first_block;
-        record[2] = 0;
-        record[3] = ss->stream_size;
+        record.blk_pos   = ss->first_block;
+        record.comp_pos  = 0;
+        record.comp_size = ss->stream_size;
       }
     }
     return record;
   };
   auto scan_record = [=, &comp_out](gpu::EncChunk const &chunk,
                                     gpu::StreamIndexType type,
-                                    std::array<int32_t, 4> &record) {
-    if (record[0] >= 0) {
-      record[0] += chunk.strm_len[type];
-      while ((record[1] >= 0) && (static_cast<size_t>(record[0]) >= compression_blocksize_) &&
-             (record[2] + 3 + comp_out[record[1]].bytes_written < static_cast<size_t>(record[3]))) {
-        record[0] -= compression_blocksize_;
-        record[2] += 3 + comp_out[record[1]].bytes_written;
-        record[1] += 1;
+                                    row_group_index_info &record) {
+    if (record.pos >= 0) {
+      record.pos += chunk.strm_len[type];
+      while ((record.pos >= 0) && (record.blk_pos >= 0) &&
+             (static_cast<size_t>(record.pos) >= compression_blocksize_) &&
+             (record.comp_pos + 3 + comp_out[record.blk_pos].bytes_written <
+              static_cast<size_t>(record.comp_size))) {
+        record.pos -= compression_blocksize_;
+        record.comp_pos += 3 + comp_out[record.blk_pos].bytes_written;
+        record.blk_pos += 1;
       }
     }
   };
@@ -910,7 +929,8 @@ void writer::impl::write_index_stream(int32_t stripe_id,
 
   // Add row index entries
   for (size_t g = group; g < group + groups_in_stripe; g++) {
-    pbw->put_row_index_entry(present[2], present[0], data[2], data[0], data2[2], data2[0], kind);
+    pbw->put_row_index_entry(
+      present.comp_pos, present.pos, data.comp_pos, data.pos, data2.comp_pos, data2.pos, kind);
 
     if (stream_id != 0) {
       const auto &ck = chunks[g * num_columns + stream_id - 1];

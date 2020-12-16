@@ -25,7 +25,7 @@
 #include <cudf/utilities/bit.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
-#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <thrust/iterator/discard_iterator.h>
 
@@ -435,16 +435,20 @@ std::pair<src_buf_info*, size_type> buf_info_functor::operator()<cudf::string_vi
                           parent_offset_index,
                           false,
                           col.offset());
-  current++;
-  offset_stack_pos += offset_depth;
 
-  // since we are crossing an offset boundary, our offset_depth and parent_offset_index go up.
-  offset_depth++;
-  parent_offset_index = offset_col - head;
+  // prevent appending buf_info for non-exist chars buffer
+  if (scv.chars_size() > 0) {
+    current++;
+    offset_stack_pos += offset_depth;
 
-  // info for the chars buffer
-  *current = src_buf_info(
-    type_id::INT8, nullptr, offset_stack_pos, parent_offset_index, false, col.offset());
+    // since we are crossing an offset boundary, our offset_depth and parent_offset_index go up.
+    offset_depth++;
+    parent_offset_index = offset_col - head;
+
+    // info for the chars buffer
+    *current = src_buf_info(
+      type_id::INT8, nullptr, offset_stack_pos, parent_offset_index, false, col.offset());
+  }
 
   return {current + 1, offset_stack_pos + offset_depth};
 }
@@ -598,9 +602,10 @@ BufInfo build_output_columns(InputIter begin,
         return std::make_pair(ptr, size);
       }
       // Parent columns w/o data (e.g., strings, lists) don't have an associated `dst_buf_info`,
-      // therefore, use the first child's info. their num_rows value will be correct (also see
-      // comment above)
-      return std::make_pair(static_cast<uint8_t const*>(nullptr), current_info->num_rows);
+      // therefore, use the first child's info if it has at least one child. Their num_rows value
+      // will be correct (also see comment above)
+      auto const size = (src.num_children() == 0) ? 0 : current_info->num_rows;
+      return std::make_pair(static_cast<uint8_t const*>(nullptr), size);
     }();
     auto children = std::vector<column_view>{};
     children.reserve(src.num_children());
@@ -784,7 +789,7 @@ std::vector<contiguous_split_result> contiguous_split(cudf::table_view const& in
 
   // compute sizes of each column in each partition, including alignment.
   thrust::transform(
-    rmm::exec_policy(stream)->on(stream.value()),
+    rmm::exec_policy(stream),
     thrust::make_counting_iterator<size_t>(0),
     thrust::make_counting_iterator<size_t>(num_bufs),
     d_dst_buf_info,
@@ -857,7 +862,7 @@ std::vector<contiguous_split_result> contiguous_split(cudf::table_view const& in
     auto values = thrust::make_transform_iterator(thrust::make_counting_iterator(0),
                                                   buf_size_functor{d_dst_buf_info});
 
-    thrust::reduce_by_key(rmm::exec_policy(stream)->on(stream.value()),
+    thrust::reduce_by_key(rmm::exec_policy(stream),
                           keys,
                           keys + num_bufs,
                           values,
@@ -871,7 +876,7 @@ std::vector<contiguous_split_result> contiguous_split(cudf::table_view const& in
                                                 split_key_functor{static_cast<int>(num_src_bufs)});
     auto values = thrust::make_transform_iterator(thrust::make_counting_iterator(0),
                                                   buf_size_functor{d_dst_buf_info});
-    thrust::exclusive_scan_by_key(rmm::exec_policy(stream)->on(stream.value()),
+    thrust::exclusive_scan_by_key(rmm::exec_policy(stream),
                                   keys,
                                   keys + num_bufs,
                                   values,

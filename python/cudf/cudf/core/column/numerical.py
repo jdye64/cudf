@@ -81,9 +81,7 @@ class NumericalColumn(column.ColumnBase):
         tmp = rhs
         if reflect:
             tmp = self
-        if isinstance(
-            rhs, (NumericalColumn, cudf.Scalar, cudf._lib.scalar.DeviceScalar)
-        ) or np.isscalar(rhs):
+        if isinstance(rhs, (NumericalColumn, cudf.Scalar)) or np.isscalar(rhs):
             out_dtype = np.result_type(self.dtype, rhs.dtype)
             if binop in ["mod", "floordiv"]:
                 if (tmp.dtype in int_dtypes) and (
@@ -109,9 +107,13 @@ class NumericalColumn(column.ColumnBase):
         if other is None:
             return other
         if isinstance(other, cudf.Scalar):
+            if self.dtype == other.dtype:
+                return other
             # expensive device-host transfer just to
             # adjust the dtype
             other = other.value
+        elif isinstance(other, np.ndarray) and other.ndim == 0:
+            other = other.item()
         other_dtype = np.min_scalar_type(other)
         if other_dtype.kind in {"b", "i", "u", "f"}:
             if isinstance(other, cudf.Scalar):
@@ -130,7 +132,7 @@ class NumericalColumn(column.ColumnBase):
                     other, size=len(self), dtype=other_dtype
                 )
                 return column.build_column(
-                    data=Buffer.from_array_lik(ary),
+                    data=Buffer.from_array_like(ary),
                     dtype=ary.dtype,
                     mask=self.mask,
                 )
@@ -144,11 +146,10 @@ class NumericalColumn(column.ColumnBase):
         return libcudf.string_casting.int2ip(self)
 
     def as_string_column(self, dtype, **kwargs):
-
         if len(self) > 0:
             return string._numeric_to_str_typecast_functions[
                 np.dtype(self.dtype)
-            ](self, **kwargs)
+            ](self)
         else:
             return as_column([], dtype="object")
 
@@ -172,7 +173,7 @@ class NumericalColumn(column.ColumnBase):
             size=self.size,
         )
 
-    def as_numerical_column(self, dtype, **kwargs):
+    def as_numerical_column(self, dtype):
         dtype = np.dtype(dtype)
         if dtype == self.dtype:
             return self
