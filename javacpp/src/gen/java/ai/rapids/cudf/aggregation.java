@@ -7,6 +7,12 @@ import org.bytedeco.javacpp.*;
 import org.bytedeco.javacpp.annotation.*;
 
 import static org.bytedeco.javacpp.presets.javacpp.*;
+import org.bytedeco.cuda.cudart.*;
+import static org.bytedeco.cuda.global.cudart.*;
+import ai.rapids.thrust.*;
+import static ai.rapids.cudf.global.thrust.*;
+import ai.rapids.rmm.*;
+import static ai.rapids.cudf.global.rmm.*;
 
 import static ai.rapids.cudf.global.cudf.*;
 
@@ -23,7 +29,7 @@ import static ai.rapids.cudf.global.cudf.*;
  * Other kinds of aggregations may derive from this class to encapsulate
  * additional information needed to compute the aggregation.
  */
-@Namespace("cudf") @NoOffset @Properties(inherit = ai.rapids.cudf.presets.Cudf.class)
+@Namespace("cudf") @NoOffset @Properties(inherit = ai.rapids.cudf.presets.cudf.class)
 public class aggregation extends Pointer {
     static { Loader.load(); }
     /** Pointer cast constructor. Invokes {@link Pointer#Pointer(Pointer)}. */

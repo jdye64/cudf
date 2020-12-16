@@ -9,11 +9,20 @@ import org.bytedeco.javacpp.*;
 import org.bytedeco.javacpp.annotation.*;
 
 import static org.bytedeco.javacpp.presets.javacpp.*;
+import org.bytedeco.cuda.cudart.*;
+import static org.bytedeco.cuda.global.cudart.*;
+import ai.rapids.thrust.*;
+import static ai.rapids.cudf.global.thrust.*;
+import ai.rapids.rmm.*;
+import static ai.rapids.cudf.global.rmm.*;
 
-public class cudf extends ai.rapids.cudf.presets.Cudf {
+public class cudf extends ai.rapids.cudf.presets.cudf {
     static { Loader.load(); }
 
-// Targeting ../ColumnVector.java
+// Targeting ../VectorUniqueColumnPointer.java
+
+
+// Targeting ../PairColumnTableView.java
 
 
 // Parsed from cudf/aggregation.hpp
@@ -102,7 +111,7 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  * @param ddof Delta degrees of freedom. The divisor used in calculation of
  *             {@code variance} is {@code N - ddof}, where {@code N} is the population size.
  */
-@Namespace("cudf") public static native @UniquePtr aggregation make_variance_aggregation(@ByVal(nullValue = "size_type(1)") size_type ddof);
+@Namespace("cudf") public static native @UniquePtr aggregation make_variance_aggregation(@ByVal(nullValue = "cudf::size_type(1)") IntPointer ddof);
 @Namespace("cudf") public static native @UniquePtr aggregation make_variance_aggregation();
 
 /**
@@ -111,7 +120,7 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  * @param ddof Delta degrees of freedom. The divisor used in calculation of
  *             {@code std} is {@code N - ddof}, where {@code N} is the population size.
  */
-@Namespace("cudf") public static native @UniquePtr aggregation make_std_aggregation(@ByVal(nullValue = "size_type(1)") size_type ddof);
+@Namespace("cudf") public static native @UniquePtr aggregation make_std_aggregation(@ByVal(nullValue = "cudf::size_type(1)") IntPointer ddof);
 @Namespace("cudf") public static native @UniquePtr aggregation make_std_aggregation();
 
 /** Factory to create a MEDIAN aggregation */
@@ -171,9 +180,9 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  * @param null_handling Indicates to include/exclude nulls during indexing.
  */
 @Namespace("cudf") public static native @UniquePtr aggregation make_nth_element_aggregation(
-  @ByVal size_type n, @ByVal(nullValue = "null_policy::INCLUDE") null_policy null_handling);
+  @ByVal IntPointer n, @ByVal(nullValue = "null_policy::INCLUDE") null_policy null_handling);
 @Namespace("cudf") public static native @UniquePtr aggregation make_nth_element_aggregation(
-  @ByVal size_type n);
+  @ByVal IntPointer n);
 
 /** Factory to create a ROW_NUMBER aggregation */
 @Namespace("cudf") public static native @UniquePtr aggregation make_row_number_aggregation();
@@ -182,10 +191,10 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
 @Namespace("cudf") public static native @UniquePtr aggregation make_collect_aggregation();
 
 /** Factory to create a LAG aggregation */
-@Namespace("cudf") public static native @UniquePtr aggregation make_lag_aggregation(@ByVal size_type offset);
+@Namespace("cudf") public static native @UniquePtr aggregation make_lag_aggregation(@ByVal IntPointer offset);
 
 /** Factory to create a LEAD aggregation */
-@Namespace("cudf") public static native @UniquePtr aggregation make_lead_aggregation(@ByVal size_type offset);
+@Namespace("cudf") public static native @UniquePtr aggregation make_lead_aggregation(@ByVal IntPointer offset);
 
 /**
  * \brief Factory to create an aggregation base on UDF for PTX or CUDA
@@ -202,292 +211,6 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
 @Namespace("cudf") public static native @UniquePtr aggregation make_udf_aggregation(@Cast("cudf::udf_type") boolean type,
                                                   @StdString String user_defined_aggregator,
                                                   @ByVal data_type output_type);
-
-/** \} */  // end of group
-  // namespace cudf
-
-
-// Parsed from cudf/binaryop.hpp
-
-/*
- * Copyright (c) 2019, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// #pragma once
-
-// #include <cudf/column/column.hpp>
-// #include <cudf/scalar/scalar.hpp>
-
-// #include <memory>
-
-/**
- * \addtogroup transformation_binaryops
- * \{
- * \file
- * \brief Column APIs for binary ops
- */
-
-/**
- * \brief Types of binary operations that can be performed on data.
- */
-@Namespace("cudf") public enum binary_operator {
-  /** operator + */
-  ADD(0),
-  /** operator - */
-  SUB(1),
-  /** operator * */
-  MUL(2),
-  /** operator / using common type of lhs and rhs */
-  DIV(3),
-  /** operator / after promoting type to floating point */
-  TRUE_DIV(4),
-  /** operator / after promoting to 64 bit floating point and then
- *  flooring the result */
-  FLOOR_DIV(5),
-  /** operator % */
-  MOD(6),
-  /** operator % but following python's sign rules for negatives */
-  PYMOD(7),
-  /** lhs ^ rhs */
-  POW(8),
-  /** operator == */
-  EQUAL(9),
-  /** operator != */
-  NOT_EQUAL(10),
-  /** operator < */
-  LESS(11),
-  /** operator > */
-  GREATER(12),
-  /** operator <= */
-  LESS_EQUAL(13),
-  /** operator >= */
-  GREATER_EQUAL(14),
-  /** operator & */
-  BITWISE_AND(15),
-  /** operator | */
-  BITWISE_OR(16),
-  /** operator ^ */
-  BITWISE_XOR(17),
-  /** operator && */
-  LOGICAL_AND(18),
-  /** operator || */
-  LOGICAL_OR(19),
-  /** operator x,y  x is null ? y : x */
-  COALESCE(20),
-  /** generic binary operator to be generated with input
- *  ptx code */
-  GENERIC_BINARY(21),
-  /** operator << */
-  SHIFT_LEFT(22),
-  /** operator >> */
-  SHIFT_RIGHT(23),
-  /** operator >>> (from Java)
- *  Logical right shift. Casts to an unsigned value before shifting. */
-  SHIFT_RIGHT_UNSIGNED(24),
-  /** logarithm to the base */
-  LOG_BASE(25),
-  /** 2-argument arctangent */
-  ATAN2(26),
-  /** positive modulo operator
- *  If remainder is negative, this returns (remainder + divisor) % divisor
- *  else, it returns (dividend % divisor) */
-  PMOD(27),
-  /** Returns true when both operands are null; false when one is null; the
- *  result of equality when both are non-null */
-  NULL_EQUALS(28),
-  /** Returns max of operands when both are non-null; returns the non-null
- *  operand when one is null; or invalid when both are null */
-  NULL_MAX(29),
-  /** Returns min of operands when both are non-null; returns the non-null
- *  operand when one is null; or invalid when both are null */
-  NULL_MIN(30),
-  /** invalid operation */
-  INVALID_BINARY(31);
-
-    public final int value;
-    private binary_operator(int v) { this.value = v; }
-    private binary_operator(binary_operator e) { this.value = e.value; }
-    public binary_operator intern() { for (binary_operator e : values()) if (e.value == value) return e; return this; }
-    @Override public String toString() { return intern().name(); }
-}
-/**
- * \brief Performs a binary operation between a scalar and a column.
- *
- * The output contains the result of {@code op(lhs, rhs[i])} for all {@code 0 <= i < rhs.size()}
- * The scalar is the left operand and the column elements are the right operand.
- * This distinction is significant in case of non-commutative binary operations
- *
- * Regardless of the operator, the validity of the output value is the logical
- * AND of the validity of the two operands
- *
- * @param lhs         The left operand scalar
- * @param rhs         The right operand column
- * @param output_type The desired data type of the output column
- * @param mr          Device memory resource used to allocate the returned column's device memory
- * @return            Output column of {@code output_type} type containing the result of
- *                    the binary operation
- * @throws cudf::logic_error if \p output_type dtype isn't fixed-width
- */
-@Namespace("cudf") public static native @UniquePtr column binary_operation(
-  @Const @ByRef scalar lhs,
-  @Const @ByRef column_view rhs,
-  binary_operator op,
-  @ByVal data_type output_type,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column binary_operation(
-  @Const @ByRef scalar lhs,
-  @Const @ByRef column_view rhs,
-  binary_operator op,
-  @ByVal data_type output_type);
-@Namespace("cudf") public static native @UniquePtr column binary_operation(
-  @Const @ByRef scalar lhs,
-  @Const @ByRef column_view rhs,
-  @Cast("cudf::binary_operator") int op,
-  @ByVal data_type output_type,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column binary_operation(
-  @Const @ByRef scalar lhs,
-  @Const @ByRef column_view rhs,
-  @Cast("cudf::binary_operator") int op,
-  @ByVal data_type output_type);
-
-/**
- * \brief Performs a binary operation between a column and a scalar.
- *
- * The output contains the result of {@code op(lhs[i], rhs)} for all {@code 0 <= i < lhs.size()}
- * The column elements are the left operand and the scalar is the right operand.
- * This distinction is significant in case of non-commutative binary operations
- *
- * Regardless of the operator, the validity of the output value is the logical
- * AND of the validity of the two operands
- *
- * @param lhs         The left operand column
- * @param rhs         The right operand scalar
- * @param output_type The desired data type of the output column
- * @param mr          Device memory resource used to allocate the returned column's device memory
- * @return            Output column of {@code output_type} type containing the result of
- *                    the binary operation
- * @throws cudf::logic_error if \p output_type dtype isn't fixed-width
- */
-@Namespace("cudf") public static native @UniquePtr column binary_operation(
-  @Const @ByRef column_view lhs,
-  @Const @ByRef scalar rhs,
-  binary_operator op,
-  @ByVal data_type output_type,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column binary_operation(
-  @Const @ByRef column_view lhs,
-  @Const @ByRef scalar rhs,
-  binary_operator op,
-  @ByVal data_type output_type);
-@Namespace("cudf") public static native @UniquePtr column binary_operation(
-  @Const @ByRef column_view lhs,
-  @Const @ByRef scalar rhs,
-  @Cast("cudf::binary_operator") int op,
-  @ByVal data_type output_type,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column binary_operation(
-  @Const @ByRef column_view lhs,
-  @Const @ByRef scalar rhs,
-  @Cast("cudf::binary_operator") int op,
-  @ByVal data_type output_type);
-
-/**
- * \brief Performs a binary operation between two columns.
- *
- * The output contains the result of {@code op(lhs[i], rhs[i])} for all {@code 0 <= i < lhs.size()}
- *
- * Regardless of the operator, the validity of the output value is the logical
- * AND of the validity of the two operands
- *
- * @param lhs         The left operand column
- * @param rhs         The right operand column
- * @param output_type The desired data type of the output column
- * @param mr          Device memory resource used to allocate the returned column's device memory
- * @return            Output column of {@code output_type} type containing the result of
- *                    the binary operation
- * @throws cudf::logic_error if \p lhs and \p rhs are different sizes
- * @throws cudf::logic_error if \p output_type dtype isn't fixed-width
- */
-@Namespace("cudf") public static native @UniquePtr column binary_operation(
-  @Const @ByRef column_view lhs,
-  @Const @ByRef column_view rhs,
-  binary_operator op,
-  @ByVal data_type output_type,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column binary_operation(
-  @Const @ByRef column_view lhs,
-  @Const @ByRef column_view rhs,
-  binary_operator op,
-  @ByVal data_type output_type);
-@Namespace("cudf") public static native @UniquePtr column binary_operation(
-  @Const @ByRef column_view lhs,
-  @Const @ByRef column_view rhs,
-  @Cast("cudf::binary_operator") int op,
-  @ByVal data_type output_type,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column binary_operation(
-  @Const @ByRef column_view lhs,
-  @Const @ByRef column_view rhs,
-  @Cast("cudf::binary_operator") int op,
-  @ByVal data_type output_type);
-
-/**
- * \brief Performs a binary operation between two columns using a
- * user-defined PTX function.
- *
- * The output contains the result of {@code op(lhs[i], rhs[i])} for all {@code 0 <= i < lhs.size()}
- *
- * Regardless of the operator, the validity of the output value is the logical
- * AND of the validity of the two operands
- *
- * @param lhs         The left operand column
- * @param rhs         The right operand column
- * @param ptx         String containing the PTX of a binary function
- * @param output_type The desired data type of the output column. It is assumed
- *                    that output_type is compatible with the output data type
- *                    of the function in the PTX code
- * @param mr          Device memory resource used to allocate the returned column's device memory
- * @return            Output column of {@code output_type} type containing the result of
- *                    the binary operation
- * @throws cudf::logic_error if \p lhs and \p rhs are different sizes
- * @throws cudf::logic_error if \p lhs and \p rhs dtypes aren't numeric
- * @throws cudf::logic_error if \p output_type dtype isn't numeric
- */
-@Namespace("cudf") public static native @UniquePtr column binary_operation(
-  @Const @ByRef column_view lhs,
-  @Const @ByRef column_view rhs,
-  @StdString BytePointer ptx,
-  @ByVal data_type output_type,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column binary_operation(
-  @Const @ByRef column_view lhs,
-  @Const @ByRef column_view rhs,
-  @StdString BytePointer ptx,
-  @ByVal data_type output_type);
-@Namespace("cudf") public static native @UniquePtr column binary_operation(
-  @Const @ByRef column_view lhs,
-  @Const @ByRef column_view rhs,
-  @StdString String ptx,
-  @ByVal data_type output_type,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column binary_operation(
-  @Const @ByRef column_view lhs,
-  @Const @ByRef column_view rhs,
-  @StdString String ptx,
-  @ByVal data_type output_type);
 
 /** \} */  // end of group
   // namespace cudf
@@ -597,846 +320,6 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
   // namespace cudf
 
 
-// Parsed from cudf/copying.hpp
-
-/*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// #pragma once
-
-// #include <cudf/column/column_view.hpp>
-// #include <cudf/scalar/scalar.hpp>
-// #include <cudf/table/table.hpp>
-// #include <cudf/types.hpp>
-
-// #include <memory>
-// #include <vector>
-
-/**
- * \addtogroup column_copy
- * \{
- * \file
- * \brief Column APIs for gather, scatter, split, slice, etc.
- */
-
-/**
- * \brief Gathers the specified rows (including null values) of a set of columns.
- *
- * \ingroup copy_gather
- *
- * Gathers the rows of the source columns according to {@code gather_map} such that row "i"
- * in the resulting table's columns will contain row "gather_map[i]" from the source columns.
- * The number of rows in the result table will be equal to the number of elements in
- * {@code gather_map}.
- *
- * A negative value {@code i} in the {@code gather_map} is interpreted as {@code i+n}, where
- * {@code n} is the number of rows in the {@code source_table}.
- *
- * For dictionary columns, the keys column component is copied and not trimmed
- * if the gather results in abandoned key elements.
- *
- * @throws cudf::logic_error if {@code check_bounds == true} and an index exists in
- * {@code gather_map} outside the range {@code [-n, n)}, where {@code n} is the number of rows in
- * the source table. If {@code check_bounds == false}, the behavior is undefined.
- *
- * @param source_table [in] The input columns whose rows will be gathered
- * @param gather_map [in] View into a non-nullable column of integral indices that maps the
- * rows in the source columns to rows in the destination columns.
- * @param check_bounds [in] Optionally perform bounds checking on the values
- * of {@code gather_map} and throw an error if any of its values are out of bounds.
- * @param mr [in] Device memory resource used to allocate the returned table's device memory
- * @return std::unique_ptr<table> Result of the gather
- */
-@Namespace("cudf") public static native @UniquePtr table gather(
-  @Const @ByRef table_view source_table,
-  @Const @ByRef column_view gather_map,
-  @Cast("bool") boolean check_bounds/*=false*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table gather(
-  @Const @ByRef table_view source_table,
-  @Const @ByRef column_view gather_map);
-
-/**
- * \brief Scatters the rows of the source table into a copy of the target table
- * according to a scatter map.
- *
- * \ingroup copy_scatter
- *
- * Scatters values from the source table into the target table out-of-place,
- * returning a "destination table". The scatter is performed according to a
- * scatter map such that row {@code scatter_map[i]} of the destination table gets row
- * {@code i} of the source table. All other rows of the destination table equal
- * corresponding rows of the target table.
- *
- * The number of columns in source must match the number of columns in target
- * and their corresponding datatypes must be the same.
- *
- * If the same index appears more than once in the scatter map, the result is
- * undefined.
- *
- * A negative value {@code i} in the {@code scatter_map} is interpreted as {@code i+n}, where {@code n}
- * is the number of rows in the {@code target} table.
- *
- * @throws cudf::logic_error if {@code check_bounds == true} and an index exists in
- * {@code scatter_map} outside the range {@code [-n, n)}, where {@code n} is the number of rows in
- * the target table. If {@code check_bounds == false}, the behavior is undefined.
- *
- * @param source The input columns containing values to be scattered into the
- * target columns
- * @param scatter_map A non-nullable column of integral indices that maps the
- * rows in the source table to rows in the target table. The size must be equal
- * to or less than the number of elements in the source columns.
- * @param target The set of columns into which values from the source_table
- * are to be scattered
- * @param check_bounds Optionally perform bounds checking on the values of
- * {@code scatter_map} and throw an error if any of its values are out of bounds.
- * @param mr Device memory resource used to allocate the returned table's device memory.
- * @return Result of scattering values from source to target
- */
-@Namespace("cudf") public static native @UniquePtr table scatter(
-  @Const @ByRef table_view source,
-  @Const @ByRef column_view scatter_map,
-  @Const @ByRef table_view target,
-  @Cast("bool") boolean check_bounds/*=false*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table scatter(
-  @Const @ByRef table_view source,
-  @Const @ByRef column_view scatter_map,
-  @Const @ByRef table_view target);
-
-/**
- * \brief Scatters a row of scalar values into a copy of the target table
- * according to a scatter map.
- *
- * \ingroup copy_scatter
- *
- * Scatters values from the source row into the target table out-of-place,
- * returning a "destination table". The scatter is performed according to a
- * scatter map such that row {@code scatter_map[i]} of the destination table is
- * replaced by the source row. All other rows of the destination table equal
- * corresponding rows of the target table.
- *
- * The number of elements in source must match the number of columns in target
- * and their corresponding datatypes must be the same.
- *
- * If the same index appears more than once in the scatter map, the result is
- * undefined.
- *
- * @throws cudf::logic_error if {@code check_bounds == true} and an index exists in
- * {@code scatter_map} outside the range {@code [-n, n)}, where {@code n} is the number of rows in
- * the target table. If {@code check_bounds == false}, the behavior is undefined.
- *
- * @param source The input scalars containing values to be scattered into the
- * target columns
- * @param indices A non-nullable column of integral indices that indicate
- * the rows in the target table to be replaced by source.
- * @param target The set of columns into which values from the source_table
- * are to be scattered
- * @param check_bounds Optionally perform bounds checking on the values of
- * {@code scatter_map} and throw an error if any of its values are out of bounds.
- * @param mr Device memory resource used to allocate the returned table's device memory.
- * @return Result of scattering values from source to target
- */
-@Namespace("cudf") public static native @UniquePtr table scatter(
-  @StdVector std::reference_wrapper<const scalar> source,
-  @Const @ByRef column_view indices,
-  @Const @ByRef table_view target,
-  @Cast("bool") boolean check_bounds/*=false*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table scatter(
-  @StdVector std::reference_wrapper<const scalar> source,
-  @Const @ByRef column_view indices,
-  @Const @ByRef table_view target);
-
-/**
- * \brief Indicates when to allocate a mask, based on an existing mask.
- */
-@Namespace("cudf") public enum mask_allocation_policy {
-  /** Do not allocate a null mask, regardless of input */
-  NEVER(0),
-  /** Allocate a null mask if the input contains one */
-  RETAIN(1),
-  /** Allocate a null mask, regardless of input */
-  ALWAYS(2);
-
-    public final int value;
-    private mask_allocation_policy(int v) { this.value = v; }
-    private mask_allocation_policy(mask_allocation_policy e) { this.value = e.value; }
-    public mask_allocation_policy intern() { for (mask_allocation_policy e : values()) if (e.value == value) return e; return this; }
-    @Override public String toString() { return intern().name(); }
-}
-
-/**
- * \brief Initializes and returns an empty column of the same type as the {@code input}.
- *
- * @param input [in] Immutable view of input column to emulate
- * @return std::unique_ptr<column> An empty column of same type as {@code input}
- */
-@Namespace("cudf") public static native @UniquePtr column empty_like(@Const @ByRef column_view input);
-
-/**
- * \brief Creates an uninitialized new column of the same size and type as the {@code input}.
- * Supports only fixed-width types.
- *
- * @param input [in] Immutable view of input column to emulate
- * @param mask_alloc [in] Optional, Policy for allocating null mask. Defaults to RETAIN.
- * @param mr [in] Device memory resource used to allocate the returned column's device memory
- * @return A column with sufficient uninitialized capacity to hold the same
- * number of elements as {@code input} of the same type as {@code input.type()}
- */
-@Namespace("cudf") public static native @UniquePtr column allocate_like(
-  @Const @ByRef column_view input,
-  mask_allocation_policy mask_alloc/*=cudf::mask_allocation_policy::RETAIN*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column allocate_like(
-  @Const @ByRef column_view input);
-@Namespace("cudf") public static native @UniquePtr column allocate_like(
-  @Const @ByRef column_view input,
-  @Cast("cudf::mask_allocation_policy") int mask_alloc/*=cudf::mask_allocation_policy::RETAIN*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-
-/**
- * \brief Creates an uninitialized new column of the specified size and same type as the {@code input}.
- * Supports only fixed-width types.
- *
- * @param input [in] Immutable view of input column to emulate
- * @param size [in] The desired number of elements that the new column should have capacity for
- * @param mask_alloc [in] Optional, Policy for allocating null mask. Defaults to RETAIN.
- * @param mr [in] Device memory resource used to allocate the returned column's device memory
- * @return A column with sufficient uninitialized capacity to hold the specified number of elements
- * as {@code input} of the same type as {@code input.type()}
- */
-@Namespace("cudf") public static native @UniquePtr column allocate_like(
-  @Const @ByRef column_view input,
-  @ByVal size_type size,
-  mask_allocation_policy mask_alloc/*=cudf::mask_allocation_policy::RETAIN*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column allocate_like(
-  @Const @ByRef column_view input,
-  @ByVal size_type size);
-@Namespace("cudf") public static native @UniquePtr column allocate_like(
-  @Const @ByRef column_view input,
-  @ByVal size_type size,
-  @Cast("cudf::mask_allocation_policy") int mask_alloc/*=cudf::mask_allocation_policy::RETAIN*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-
-/**
- * \brief Creates a table of empty columns with the same types as the {@code input_table}
- *
- * Creates the {@code cudf::column} objects, but does not allocate any underlying device
- * memory for the column's data or bitmask.
- *
- * @param input_table [in] Immutable view of input table to emulate
- * @return std::unique_ptr<table> A table of empty columns with the same types as the columns in
- * {@code input_table}
- */
-@Namespace("cudf") public static native @UniquePtr table empty_like(@Const @ByRef table_view input_table);
-
-/**
- * \brief Copies a range of elements in-place from one column to another.
- *
- * Overwrites the range of elements in \p target indicated by the indices
- * [\p target_begin, \p target_begin + N) with the elements from \p source
- * indicated by the indices [\p source_begin, \p source_end) (where N =
- * (\p source_end - \p source_begin)). Use the out-of-place copy function
- * returning std::unique_ptr<column> for uses cases requiring memory
- * reallocation. For example for strings columns and other variable-width types.
- *
- * If \p source and \p target refer to the same elements and the ranges overlap,
- * the behavior is undefined.
- *
- * @throws cudf::logic_error if memory reallocation is required (e.g. for
- * variable width types).
- * @throws cudf::logic_error for invalid range (if
- * \p source_begin > \p source_end, \p source_begin < 0,
- * \p source_begin >= \p source.size(), \p source_end > \p source.size(),
- * \p target_begin < 0, target_begin >= \p target.size(), or
- * \p target_begin + (\p source_end - \p source_begin) > \p target.size()).
- * @throws cudf::logic_error if \p target and \p source have different types.
- * @throws cudf::logic_error if \p source has null values and \p target is not
- * nullable.
- *
- * @param source The column to copy from
- * @param target The preallocated column to copy into
- * @param source_begin The starting index of the source range (inclusive)
- * @param source_end The index of the last element in the source range
- * (exclusive)
- * @param target_begin The starting index of the target range (inclusive)
- */
-@Namespace("cudf") public static native void copy_range_in_place(@Const @ByRef column_view source,
-                         @ByRef mutable_column_view target,
-                         @ByVal size_type source_begin,
-                         @ByVal size_type source_end,
-                         @ByVal size_type target_begin);
-
-/**
- * \brief Copies a range of elements out-of-place from one column to another.
- *
- * Creates a new column as if an in-place copy was performed into \p target.
- * A copy of \p target is created first and then the elements indicated by the
- * indices [\p target_begin, \p target_begin + N) were copied from the elements
- * indicated by the indices [\p source_begin, \p source_end) of \p source
- * (where N = (\p source_end - \p source_begin)). Elements outside the range are
- * copied from \p target into the returned new column target.
- *
- * If \p source and \p target refer to the same elements and the ranges overlap,
- * the behavior is undefined.
- *
- * @throws cudf::logic_error for invalid range (if
- * \p source_begin > \p source_end, \p source_begin < 0,
- * \p source_begin >= \p source.size(), \p source_end > \p source.size(),
- * \p target_begin < 0, target_begin >= \p target.size(), or
- * \p target_begin + (\p source_end - \p source_begin) > \p target.size()).
- * @throws cudf::logic_error if \p target and \p source have different types.
- *
- * @param source The column to copy from inside the range.
- * @param target The column to copy from outside the range.
- * @param source_begin The starting index of the source range (inclusive)
- * @param source_end The index of the last element in the source range
- * (exclusive)
- * @param target_begin The starting index of the target range (inclusive)
- * @param mr Device memory resource used to allocate the returned column's device memory.
- * @return std::unique_ptr<column> The result target column
- */
-@Namespace("cudf") public static native @UniquePtr column copy_range(
-  @Const @ByRef column_view source,
-  @Const @ByRef column_view target,
-  @ByVal size_type source_begin,
-  @ByVal size_type source_end,
-  @ByVal size_type target_begin,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column copy_range(
-  @Const @ByRef column_view source,
-  @Const @ByRef column_view target,
-  @ByVal size_type source_begin,
-  @ByVal size_type source_end,
-  @ByVal size_type target_begin);
-
-/**
- * \brief Creates a new column by shifting all values by an offset.
- *
- * \ingroup copy_shift
- *
- * Elements will be determined by {@code output[idx] = input[idx - offset]}.
- * Some elements in the output may be indeterminable from the input. For those
- * elements, the value will be determined by {@code fill_values}.
- *
- * <pre>{@code {.pseudo}
- * Examples
- * -------------------------------------------------
- * input       = [0, 1, 2, 3, 4]
- * offset      = 3
- * fill_values = @
- * return      = [@, @, @, 0, 1]
- * -------------------------------------------------
- * input       = [5, 4, 3, 2, 1]
- * offset      = -2
- * fill_values = 7
- * return      = [3, 2, 1, 7, 7]
- * }</pre>
- *
- * \note if the input is nullable, the output will be nullable.
- * \note if the fill value is null, the output will be nullable.
- *
- * @param input      Column to be shifted.
- * @param offset     The offset by which to shift the input.
- * @param fill_value Fill value for indeterminable outputs.
- * @param mr         Device memory resource used to allocate the returned result's device memory
- *
- * @throws cudf::logic_error if \p input dtype is not fixed-with.
- * @throws cudf::logic_error if \p fill_value dtype does not match \p input dtype.
- */
-@Namespace("cudf") public static native @UniquePtr column shift(
-  @Const @ByRef column_view input,
-  @ByVal size_type offset,
-  @Const @ByRef scalar fill_value,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column shift(
-  @Const @ByRef column_view input,
-  @ByVal size_type offset,
-  @Const @ByRef scalar fill_value);
-
-/**
- * \brief Slices a {@code column_view} into a set of {@code column_view}s according to a set of indices.
- *
- * \ingroup copy_slice
- *
- * The returned views of {@code input} are constructed from an even number indices where
- * the {@code i}th returned {@code column_view} views the elements in {@code input} indicated by the range
- * {@code [indices[2*i], indices[(2*i)+1])}.
- *
- * For all {@code i} it is expected {@code indices[i] <= input.size()}
- * For all {@code i%2==0}, it is expected that {@code indices[i] <= indices[i+1]}
- *
- * \note It is the caller's responsibility to ensure that the returned views
- * do not outlive the viewed device memory.
- *
- * <pre>{@code {.pseudo}
- * input:   {10, 12, 14, 16, 18, 20, 22, 24, 26, 28}
- * indices: {1, 3, 5, 9, 2, 4, 8, 8}
- * output:  {{12, 14}, {20, 22, 24, 26}, {14, 16}, {}}
- * }</pre>
- *
- * @throws cudf::logic_error if {@code indices} size is not even.
- * @throws cudf::logic_error When the values in the pair are strictly decreasing.
- * @throws cudf::logic_error When any of the values in the pair don't belong to
- * the range [0, input.size()).
- *
- * @param input View of column to slice
- * @param indices A vector of indices used to take slices of {@code input}.
- * @return Vector of views of {@code input} indicated by the ranges in {@code indices}.
- */
-@Namespace("cudf") public static native @StdVector column_view slice(@Const @ByRef column_view input, @StdVector size_type indices);
-
-/**
- * \brief Slices a {@code table_view} into a set of {@code table_view}s according to a set of indices.
- *
- * \ingroup copy_slice
- *
- * The returned views of {@code input} are constructed from an even number indices where
- * the {@code i}th returned {@code table_view} views the elements in {@code input} indicated by the range
- * {@code [indices[2*i], indices[(2*i)+1])}.
- *
- * For all {@code i} it is expected {@code indices[i] <= input.size()}
- * For all {@code i%2==0}, it is expected that {@code indices[i] <= indices[i+1]}
- *
- * \note It is the caller's responsibility to ensure that the returned views
- * do not outlive the viewed device memory.
- *
- * <pre>{@code {.pseudo}
- * input:   [{10, 12, 14, 16, 18, 20, 22, 24, 26, 28},
- *           {50, 52, 54, 56, 58, 60, 62, 64, 66, 68}]
- * indices: {1, 3, 5, 9, 2, 4, 8, 8}
- * output:  [{{12, 14}, {20, 22, 24, 26}, {14, 16}, {}},
- *           {{52, 54}, {60, 22, 24, 26}, {14, 16}, {}}]
- * }</pre>
- *
- * @throws cudf::logic_error if {@code indices} size is not even.
- * @throws cudf::logic_error When the values in the pair are strictly decreasing.
- * @throws cudf::logic_error When any of the values in the pair don't belong to
- * the range [0, input.size()).
- *
- * @param input View of table to slice
- * @param indices A vector of indices used to take slices of {@code input}.
- * @return Vector of views of {@code input} indicated by the ranges in {@code indices}.
- */
-@Namespace("cudf") public static native @StdVector table_view slice(@Const @ByRef table_view input, @StdVector size_type indices);
-
-/**
- * \brief Splits a {@code column_view} into a set of {@code column_view}s according to a set of indices
- * derived from expected splits.
- *
- * \ingroup copy_split
- *
- * The returned view's of {@code input} are constructed from vector of splits, which indicates
- * where the split should occur. The {@code i}th returned {@code column_view} is sliced as
- * {@code [0, splits[i])} if {@code i}=0, else {@code [splits[i], input.size())} if {@code i} is the last view and
- * {@code [splits[i-1], splits[i]]} otherwise.
- *
- * For all {@code i} it is expected {@code splits[i] <= splits[i+1] <= input.size()}
- * For a {@code splits} size N, there will always be N+1 splits in the output
- *
- * \note It is the caller's responsibility to ensure that the returned views
- * do not outlive the viewed device memory.
- *
- * <pre>{@code {.pseudo}
- * Example:
- * input:   {10, 12, 14, 16, 18, 20, 22, 24, 26, 28}
- * splits:  {2, 5, 9}
- * output:  {{10, 12}, {14, 16, 18}, {20, 22, 24, 26}, {28}}
- * }</pre>
- *
- * @throws cudf::logic_error if {@code splits} has end index > size of {@code input}.
- * @throws cudf::logic_error When the value in {@code splits} is not in the range [0, input.size()).
- * @throws cudf::logic_error When the values in the {@code splits} are 'strictly decreasing'.
- *
- * @param input View of column to split
- * @param splits A vector of indices where the view will be split
- * @return The set of requested views of {@code input} indicated by the {@code splits}.
- */
-@Namespace("cudf") public static native @StdVector column_view split(@Const @ByRef column_view input, @StdVector size_type splits);
-
-/**
- * \brief Splits a {@code table_view} into a set of {@code table_view}s according to a set of indices
- * derived from expected splits.
- *
- * \ingroup copy_split
- *
- * The returned views of {@code input} are constructed from vector of splits, which indicates
- * where the split should occur. The {@code i}th returned {@code table_view} is sliced as
- * {@code [0, splits[i])} if {@code i}=0, else {@code [splits[i], input.size())} if {@code i} is the last view and
- * {@code [splits[i-1], splits[i]]} otherwise.
- *
- * For all {@code i} it is expected {@code splits[i] <= splits[i+1] <= input.size()}
- * For a {@code splits} size N, there will always be N+1 splits in the output
- *
- * \note It is the caller's responsibility to ensure that the returned views
- * do not outlive the viewed device memory.
- *
- * <pre>{@code {.pseudo}
- * Example:
- * input:   [{10, 12, 14, 16, 18, 20, 22, 24, 26, 28},
- *           {50, 52, 54, 56, 58, 60, 62, 64, 66, 68}]
- * splits:  {2, 5, 9}
- * output:  [{{10, 12}, {14, 16, 18}, {20, 22, 24, 26}, {28}},
- *           {{50, 52}, {54, 56, 58}, {60, 62, 64, 66}, {68}}]
- * }</pre>
- *
- * @throws cudf::logic_error if {@code splits} has end index > size of {@code input}.
- * @throws cudf::logic_error When the value in {@code splits} is not in the range [0, input.size()).
- * @throws cudf::logic_error When the values in the {@code splits} are 'strictly decreasing'.
- *
- * @param input View of a table to split
- * @param splits A vector of indices where the view will be split
- * @return The set of requested views of {@code input} indicated by the {@code splits}.
- */
-@Namespace("cudf") public static native @StdVector table_view split(@Const @ByRef table_view input, @StdVector size_type splits);
-// Targeting ../contiguous_split_result.java
-
-
-
-/**
- * \brief Performs a deep-copy split of a {@code table_view} into a set of {@code table_view}s into a single
- * contiguous block of memory.
- *
- * \ingroup copy_split
- *
- * The memory for the output views is allocated in a single contiguous {@code rmm::device_buffer} returned
- * in the {@code contiguous_split_result}. There is no top-level owning table.
- *
- * The returned views of {@code input} are constructed from a vector of indices, that indicate
- * where each split should occur. The {@code i}th returned {@code table_view} is sliced as
- * {@code [0, splits[i])} if {@code i}=0, else {@code [splits[i], input.size())} if {@code i} is the last view and
- * {@code [splits[i-1], splits[i]]} otherwise.
- *
- * For all {@code i} it is expected {@code splits[i] <= splits[i+1] <= input.size()}
- * For a {@code splits} size N, there will always be N+1 splits in the output
- *
- * \note It is the caller's responsibility to ensure that the returned views
- * do not outlive the viewed device memory contained in the {@code all_data} field of the
- * returned contiguous_split_result.
- *
- * <pre>{@code {.pseudo}
- * Example:
- * input:   [{10, 12, 14, 16, 18, 20, 22, 24, 26, 28},
- *           {50, 52, 54, 56, 58, 60, 62, 64, 66, 68}]
- * splits:  {2, 5, 9}
- * output:  [{{10, 12}, {14, 16, 18}, {20, 22, 24, 26}, {28}},
- *           {{50, 52}, {54, 56, 58}, {60, 62, 64, 66}, {68}}]
- * }</pre>
- *
- *
- * @throws cudf::logic_error if {@code splits} has end index > size of {@code input}.
- * @throws cudf::logic_error When the value in {@code splits} is not in the range [0, input.size()).
- * @throws cudf::logic_error When the values in the {@code splits} are 'strictly decreasing'.
- *
- * @param input View of a table to split
- * @param splits A vector of indices where the view will be split
- * @param mr [in] Device memory resource used to allocate the returned result's device memory
- * @return The set of requested views of {@code input} indicated by the {@code splits} and the viewed memory
- * buffer.
- */
-@Namespace("cudf") public static native @StdVector contiguous_split_result contiguous_split(
-  @Const @ByRef table_view input,
-  @StdVector size_type splits,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @StdVector contiguous_split_result contiguous_split(
-  @Const @ByRef table_view input,
-  @StdVector size_type splits);
-
-/**
- * \brief   Returns a new column, where each element is selected from either \p lhs or
- *          \p rhs based on the value of the corresponding element in \p boolean_mask
- *
- * Selects each element i in the output column from either \p rhs or \p lhs using the following
- * rule: {@code output[i] = (boolean_mask.valid(i) and boolean_mask[i]) ? lhs[i] : rhs[i]}
- *
- * @throws cudf::logic_error if lhs and rhs are not of the same type
- * @throws cudf::logic_error if lhs and rhs are not of the same length
- * @throws cudf::logic_error if boolean mask is not of type bool
- * @throws cudf::logic_error if boolean mask is not of the same length as lhs and rhs
- * @param lhs [in] left-hand column_view
- * @param rhs [in] right-hand column_view
- * @param boolean_mask [in] column of {@code type_id::BOOL8} representing "left (true) / right (false)"
- * boolean for each element. Null element represents false.
- * @param mr [in] Device memory resource used to allocate the returned column's device memory
- *
- * @return new column with the selected elements
- */
-@Namespace("cudf") public static native @UniquePtr column copy_if_else(
-  @Const @ByRef column_view lhs,
-  @Const @ByRef column_view rhs,
-  @Const @ByRef column_view boolean_mask,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column copy_if_else(
-  @Const @ByRef column_view lhs,
-  @Const @ByRef column_view rhs,
-  @Const @ByRef column_view boolean_mask);
-
-/**
- * \brief   Returns a new column, where each element is selected from either \p lhs or
- *          \p rhs based on the value of the corresponding element in \p boolean_mask
- *
- * Selects each element i in the output column from either \p rhs or \p lhs using the following
- * rule: {@code output[i] = (boolean_mask.valid(i) and boolean_mask[i]) ? lhs : rhs[i]}
- *
- * @throws cudf::logic_error if lhs and rhs are not of the same type
- * @throws cudf::logic_error if boolean mask is not of type bool
- * @throws cudf::logic_error if boolean mask is not of the same length as rhs
- * @param lhs [in] left-hand scalar
- * @param rhs [in] right-hand column_view
- * @param boolean_mask [in] column of {@code type_id::BOOL8} representing "left (true) / right (false)"
- * boolean for each element. Null element represents false.
- * @param mr [in] Device memory resource used to allocate the returned column's device memory
- *
- * @return new column with the selected elements
- */
-@Namespace("cudf") public static native @UniquePtr column copy_if_else(
-  @Const @ByRef scalar lhs,
-  @Const @ByRef column_view rhs,
-  @Const @ByRef column_view boolean_mask,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column copy_if_else(
-  @Const @ByRef scalar lhs,
-  @Const @ByRef column_view rhs,
-  @Const @ByRef column_view boolean_mask);
-
-/**
- * \brief   Returns a new column, where each element is selected from either \p lhs or
- *          \p rhs based on the value of the corresponding element in \p boolean_mask
- *
- * Selects each element i in the output column from either \p rhs or \p lhs using the following
- * rule: {@code output[i] = (boolean_mask.valid(i) and boolean_mask[i]) ? lhs[i] : rhs}
- *
- * @throws cudf::logic_error if lhs and rhs are not of the same type
- * @throws cudf::logic_error if boolean mask is not of type bool
- * @throws cudf::logic_error if boolean mask is not of the same length as lhs
- * @param lhs [in] left-hand column_view
- * @param rhs [in] right-hand scalar
- * @param boolean_mask [in] column of {@code type_id::BOOL8} representing "left (true) / right (false)"
- * boolean for each element. Null element represents false.
- * @param mr [in] Device memory resource used to allocate the returned column's device memory
- *
- * @return new column with the selected elements
- */
-@Namespace("cudf") public static native @UniquePtr column copy_if_else(
-  @Const @ByRef column_view lhs,
-  @Const @ByRef scalar rhs,
-  @Const @ByRef column_view boolean_mask,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column copy_if_else(
-  @Const @ByRef column_view lhs,
-  @Const @ByRef scalar rhs,
-  @Const @ByRef column_view boolean_mask);
-
-/**
- * \brief   Returns a new column, where each element is selected from either \p lhs or
- *          \p rhs based on the value of the corresponding element in \p boolean_mask
- *
- * Selects each element i in the output column from either \p rhs or \p lhs using the following
- * rule: {@code output[i] = (boolean_mask.valid(i) and boolean_mask[i]) ? lhs : rhs}
- *
- * @throws cudf::logic_error if boolean mask is not of type bool
- * @param lhs [in] left-hand scalar
- * @param rhs [in] right-hand scalar
- * @param boolean_mask [in] column of {@code type_id::BOOL8} representing "left (true) / right (false)"
- * boolean for each element. null element represents false.
- * @param mr [in] Device memory resource used to allocate the returned column's device memory
- *
- * @return new column with the selected elements
- */
-@Namespace("cudf") public static native @UniquePtr column copy_if_else(
-  @Const @ByRef scalar lhs,
-  @Const @ByRef scalar rhs,
-  @Const @ByRef column_view boolean_mask,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column copy_if_else(
-  @Const @ByRef scalar lhs,
-  @Const @ByRef scalar rhs,
-  @Const @ByRef column_view boolean_mask);
-
-/**
- * \brief Scatters rows from the input table to rows of the output corresponding
- * to true values in a boolean mask.
- *
- * \ingroup copy_scatter
- *
- * The {@code i}th row of {@code input} will be written to the output table at the location
- * of the {@code i}th true value in {@code boolean_mask}. All other rows in the output will
- * equal the same row in {@code target}.
- *
- * {@code boolean_mask} should have number of {@code true}s <= number of rows in {@code input}.
- * If boolean mask is {@code true}, corresponding value in target is updated with
- * value from corresponding {@code input} column, else it is left untouched.
- *
- * <pre>{@code {.pseudo}
- * Example:
- * input: {{1, 5, 6, 8, 9}}
- * boolean_mask: {true, false, false, false, true, true, false, true, true, false}
- * target:       {{   2,     2,     3,     4,    4,     7,    7,    7,    8,    10}}
- *
- * output:       {{   1,     2,     3,     4,    5,     6,    7,    8,    9,    10}}
- * }</pre>
- *
- * @throws  cudf::logic_error if input.num_columns() != target.num_columns()
- * @throws cudf::logic_error if any {@code i}th input_column type != {@code i}th target_column type
- * @throws cudf::logic_error if boolean_mask.type() != bool
- * @throws cudf::logic_error if boolean_mask.size() != target.num_rows()
- * @throws cudf::logic_error if number of {@code true} in {@code boolean_mask} > input.num_rows()
- *
- * @param input [in] table_view (set of dense columns) to scatter
- * @param target [in] table_view to modify with scattered values from {@code input}
- * @param boolean_mask [in] column_view which acts as boolean mask.
- * @param mr [in] Device memory resource used to allocate device memory of the returned table.
- *
- * @return Returns a table by scattering {@code input} into {@code target} as per {@code boolean_mask}.
- */
-@Namespace("cudf") public static native @UniquePtr table boolean_mask_scatter(
-  @Const @ByRef table_view input,
-  @Const @ByRef table_view target,
-  @Const @ByRef column_view boolean_mask,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table boolean_mask_scatter(
-  @Const @ByRef table_view input,
-  @Const @ByRef table_view target,
-  @Const @ByRef column_view boolean_mask);
-
-/**
- * \brief Scatters scalar values to rows of the output corresponding
- * to true values in a boolean mask.
- *
- * \ingroup copy_scatter
- *
- * The {@code i}th scalar in {@code input} will be written to all columns of the output
- * table at the location of the {@code i}th true value in {@code boolean_mask}.
- * All other rows in the output will equal the same row in {@code target}.
- *
- * <pre>{@code {.pseudo}
- * Example:
- * input: {11}
- * boolean_mask: {true, false, false, false, true, true, false, true, true, false}
- * target:      {{   2,     2,     3,     4,    4,     7,    7,    7,    8,    10}}
- *
- * output:       {{   11,    2,     3,     4,   11,    11,    7,   11,   11,    10}}
- * }</pre>
- *
- * @throws  cudf::logic_error if input.size() != target.num_columns()
- * @throws cudf::logic_error if any {@code i}th input_scalar type != {@code i}th target_column type
- * @throws cudf::logic_error if boolean_mask.type() != bool
- * @throws cudf::logic_error if boolean_mask.size() != target.size()
- *
- * @param input [in] scalars to scatter
- * @param target [in] table_view to modify with scattered values from {@code input}
- * @param boolean_mask [in] column_view which acts as boolean mask.
- * @param mr [in] Device memory resource used to allocate device memory of the returned table.
- *
- * @return Returns a table by scattering {@code input} into {@code target} as per {@code boolean_mask}.
- */
-@Namespace("cudf") public static native @UniquePtr table boolean_mask_scatter(
-  @StdVector std::reference_wrapper<const scalar> input,
-  @Const @ByRef table_view target,
-  @Const @ByRef column_view boolean_mask,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table boolean_mask_scatter(
-  @StdVector std::reference_wrapper<const scalar> input,
-  @Const @ByRef table_view target,
-  @Const @ByRef column_view boolean_mask);
-
-/**
- * \brief Get the element at specified index from a column
- *
- * \warning This function is expensive (invokes a kernel launch). So, it is not
- * recommended to be used in performance sensitive code or inside a loop.
- *
- * @throws cudf::logic_error if {@code index} is not within the range {@code [0, input.size())}
- *
- * @param input Column view to get the element from
- * @param index Index into {@code input} to get the element at
- * @param mr Device memory resource used to allocate the returned scalar's device memory.
- * @return std::unique_ptr<scalar> Scalar containing the single value
- */
-@Namespace("cudf") public static native @UniquePtr scalar get_element(
-  @Const @ByRef column_view input,
-  @ByVal size_type index,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr scalar get_element(
-  @Const @ByRef column_view input,
-  @ByVal size_type index);
-
-/**
- * \brief Indicates whether a row can be sampled more than once.
- **/
-@Namespace("cudf") public enum sample_with_replacement {
-  FALSE(0 != 0),  // A row can be sampled only once
-  TRUE(1 != 0);   // A row can be sampled more than once
-
-    public final boolean value;
-    private sample_with_replacement(boolean v) { this.value = v; }
-    private sample_with_replacement(sample_with_replacement e) { this.value = e.value; }
-    public sample_with_replacement intern() { for (sample_with_replacement e : values()) if (e.value == value) return e; return this; }
-    @Override public String toString() { return intern().name(); }
-}
-
-/**
- * \brief Gather {@code n} samples from given {@code input} randomly
- *
- * <pre>{@code {.pseudo}
- * Example:
- * input: {col1: {1, 2, 3, 4, 5}, col2: {6, 7, 8, 9, 10}}
- * n: 3
- * replacement: false
- *
- * output:       {col1: {3, 1, 4}, col2: {8, 6, 9}}
- *
- * replacement: true
- *
- * output:       {col1: {3, 1, 1}, col2: {8, 6, 6}}
- * }</pre>
- *
- * @throws cudf::logic_error if {@code n} > {@code input.num_rows()} and {@code replacement} == FALSE.
- * @throws cudf::logic_error if {@code n} < 0.
- *
- * @param input View of a table to sample.
- * @param n non-negative number of samples expected from {@code input}.
- * @param replacement Allow or disallow sampling of the same row more than once.
- * @param seed Seed value to initiate random number generator.
- * @param mr Device memory resource used to allocate the returned table's device memory
- *
- * @return std::unique_ptr<table> Table containing samples from {@code input}
- */
-@Namespace("cudf") public static native @UniquePtr table sample(
-  @Const @ByRef table_view input,
-  @Const @ByVal size_type n,
-  sample_with_replacement replacement/*=cudf::sample_with_replacement::FALSE*/,
-  @Cast("const int64_t") long seed/*=0*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table sample(
-  @Const @ByRef table_view input,
-  @Const @ByVal size_type n);
-@Namespace("cudf") public static native @UniquePtr table sample(
-  @Const @ByRef table_view input,
-  @Const @ByVal size_type n,
-  @Cast("cudf::sample_with_replacement") boolean replacement/*=cudf::sample_with_replacement::FALSE*/,
-  @Cast("const int64_t") long seed/*=0*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-
-/** \} */
-  // namespace cudf
-
-
 // Parsed from cudf/datetime.hpp
 
 /*
@@ -1480,10 +363,10 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  * @return cudf::column of the extracted int16_t years
  * @throws cudf::logic_error if input column datatype is not TIMESTAMP
  */
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer extract_year(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column extract_year(
   @Const @ByRef column_view column,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer extract_year(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column extract_year(
   @Const @ByRef column_view column);
 
 /**
@@ -1495,10 +378,10 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  * @return cudf::column of the extracted int16_t months
  * @throws cudf::logic_error if input column datatype is not TIMESTAMP
  */
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer extract_month(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column extract_month(
   @Const @ByRef column_view column,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer extract_month(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column extract_month(
   @Const @ByRef column_view column);
 
 /**
@@ -1510,10 +393,10 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  * @return cudf::column of the extracted int16_t days
  * @throws cudf::logic_error if input column datatype is not TIMESTAMP
  */
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer extract_day(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column extract_day(
   @Const @ByRef column_view column,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer extract_day(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column extract_day(
   @Const @ByRef column_view column);
 
 /**
@@ -1525,10 +408,10 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  * @return cudf::column of the extracted int16_t days
  * @throws cudf::logic_error if input column datatype is not TIMESTAMP
  */
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer extract_weekday(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column extract_weekday(
   @Const @ByRef column_view column,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer extract_weekday(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column extract_weekday(
   @Const @ByRef column_view column);
 
 /**
@@ -1540,10 +423,10 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  * @return cudf::column of the extracted int16_t hours
  * @throws cudf::logic_error if input column datatype is not TIMESTAMP
  */
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer extract_hour(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column extract_hour(
   @Const @ByRef column_view column,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer extract_hour(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column extract_hour(
   @Const @ByRef column_view column);
 
 /**
@@ -1555,10 +438,10 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  * @return cudf::column of the extracted int16_t minutes
  * @throws cudf::logic_error if input column datatype is not TIMESTAMP
  */
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer extract_minute(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column extract_minute(
   @Const @ByRef column_view column,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer extract_minute(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column extract_minute(
   @Const @ByRef column_view column);
 
 /**
@@ -1570,10 +453,10 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  * @return cudf::column of the extracted int16_t seconds
  * @throws cudf::logic_error if input column datatype is not TIMESTAMP
  */
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer extract_second(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column extract_second(
   @Const @ByRef column_view column,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer extract_second(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column extract_second(
   @Const @ByRef column_view column);
 
 /** \} */  // end of group
@@ -1592,10 +475,10 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  * @return cudf::column containing last day of the month as TIMESTAMP_DAYS
  * @throws cudf::logic_error if input column datatype is not TIMESTAMP
  */
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer last_day_of_month(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column last_day_of_month(
   @Const @ByRef column_view column,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer last_day_of_month(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column last_day_of_month(
   @Const @ByRef column_view column);
 
 /**
@@ -1607,10 +490,10 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  * @return cudf::column of datatype INT16 containing the day number since the start of the year.
  * @throws cudf::logic_error if input column datatype is not a TIMESTAMP
  */
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer day_of_year(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column day_of_year(
   @Const @ByRef column_view column,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer day_of_year(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column day_of_year(
   @Const @ByRef column_view column);
 
 /**
@@ -1641,11 +524,11 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  * is not INT16.
  * @throws cudf::logic_error if {@code timestamps} column size is not equal to {@code months} column size.
  */
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer add_calendrical_months(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column add_calendrical_months(
   @Const @ByRef column_view timestamps,
   @Const @ByRef column_view months,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf::datetime") public static native @ByVal UniqueColumnPointer add_calendrical_months(
+@Namespace("cudf::datetime") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column add_calendrical_months(
   @Const @ByRef column_view timestamps,
   @Const @ByRef column_view months);
 /** \} */  // end of group
@@ -1710,8 +593,8 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  * @return void
  */
 @Namespace("cudf") public static native void fill_in_place(@ByRef mutable_column_view destination,
-                   @ByVal size_type begin,
-                   @ByVal size_type end,
+                   @ByVal IntPointer begin,
+                   @ByVal IntPointer end,
                    @Const @ByRef scalar value);
 
 /**
@@ -1738,14 +621,14 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  */
 @Namespace("cudf") public static native @UniquePtr @Name("fill") column _fill(
   @Const @ByRef column_view input,
-  @ByVal size_type begin,
-  @ByVal size_type end,
+  @ByVal IntPointer begin,
+  @ByVal IntPointer end,
   @Const @ByRef scalar value,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
 @Namespace("cudf") public static native @UniquePtr @Name("fill") column _fill(
   @Const @ByRef column_view input,
-  @ByVal size_type begin,
-  @ByVal size_type end,
+  @ByVal IntPointer begin,
+  @ByVal IntPointer end,
   @Const @ByRef scalar value);
 
 /**
@@ -1809,11 +692,11 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  */
 @Namespace("cudf") public static native @UniquePtr table repeat(
   @Const @ByRef table_view input_table,
-  @ByVal size_type count,
+  @ByVal IntPointer count,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
 @Namespace("cudf") public static native @UniquePtr table repeat(
   @Const @ByRef table_view input_table,
-  @ByVal size_type count);
+  @ByVal IntPointer count);
 
 /**
  * \brief Fills a column with a sequence of value specified by an initial value and a step.
@@ -1839,12 +722,12 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  * @return std::unique_ptr<column> The result table containing the sequence
  **/
 @Namespace("cudf") public static native @UniquePtr column sequence(
-  @ByVal size_type size,
+  @ByVal IntPointer size,
   @Const @ByRef scalar init,
   @Const @ByRef scalar step,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
 @Namespace("cudf") public static native @UniquePtr column sequence(
-  @ByVal size_type size,
+  @ByVal IntPointer size,
   @Const @ByRef scalar init,
   @Const @ByRef scalar step);
 
@@ -1869,62 +752,14 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  * @return std::unique_ptr<column> The result table containing the sequence
  **/
 @Namespace("cudf") public static native @UniquePtr column sequence(
-  @ByVal size_type size,
+  @ByVal IntPointer size,
   @Const @ByRef scalar init,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
 @Namespace("cudf") public static native @UniquePtr column sequence(
-  @ByVal size_type size,
+  @ByVal IntPointer size,
   @Const @ByRef scalar init);
 
 /** \} */  // end of group
-  // namespace cudf
-
-
-// Parsed from cudf/groupby.hpp
-
-/*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// #pragma once
-
-// #include <cudf/aggregation.hpp>
-// #include <cudf/table/table_view.hpp>
-// #include <cudf/types.hpp>
-
-// #include <rmm/cuda_stream_view.hpp>
-
-// #include <utility>
-// #include <vector>
-// Targeting ../sort_groupby_helper.java
-
-
-
-  // namespace sort
-
-// Targeting ../aggregation_request.java
-
-
-// Targeting ../aggregation_result.java
-
-
-// Targeting ../groupby.java
-
-
-/** \} */
-  // namespace groupby
   // namespace cudf
 
 
@@ -1987,3319 +822,6 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
   // namespace cudf
 
 
-// Parsed from cudf/interop.hpp
-
-/*
- * Copyright (c) 2020, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// #pragma once
-
-// #include <arrow/api.h>
-// #include <cudf/column/column.hpp>
-// #include <cudf/detail/transform.hpp>
-// #include <cudf/table/table.hpp>
-// #include <cudf/table/table_view.hpp>
-// #include <cudf/types.hpp>
-// Targeting ../DLManagedTensor.java
-
-
-/**
- * \addtogroup interop_dlpack
- * \{
- * \file
- */
-
-/**
- * \brief Convert a DLPack DLTensor into a cudf table
- *
- * The {@code device_type} of the DLTensor must be {@code kDLGPU}, {@code kDLCPU}, or
- * {@code kDLCPUPinned}, and {@code device_id} must match the current device. The {@code ndim}
- * must be set to 1 or 2. The {@code dtype} must have 1 lane and the bitsize must
- * match a supported {@code cudf::data_type}.
- *
- * \note The managed tensor is not deleted by this function.
- *
- * @throws cudf::logic_error if the any of the DLTensor fields are unsupported
- *
- * @param managed_tensor a 1D or 2D column-major (Fortran order) tensor
- * @param mr Device memory resource used to allocate the returned table's device memory.
- *
- * @return Table with a copy of the tensor data
- */
-@Namespace("cudf") public static native @UniquePtr table from_dlpack(
-  @Const DLManagedTensor managed_tensor,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table from_dlpack(
-  @Const DLManagedTensor managed_tensor);
-
-/**
- * \brief Convert a cudf table into a DLPack DLTensor
- *
- * All columns must have the same data type and this type must be numeric. The
- * columns may be nullable, but the null count must be zero. If the input table
- * is empty or has zero rows, the result will be nullptr.
- *
- * \note The {@code deleter} method of the returned {@code DLManagedTensor} must be used to
- * free the memory allocated for the tensor.
- *
- * @throws cudf::logic_error if the data types are not equal or not numeric,
- * or if any of columns have non-zero null count
- *
- * @param input Table to convert to DLPack
- * @param mr Device memory resource used to allocate the returned DLPack tensor's device memory.
- *
- * @return 1D or 2D DLPack tensor with a copy of the table data, or nullptr
- */
-@Namespace("cudf") public static native DLManagedTensor to_dlpack(
-  @Const @ByRef table_view input,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native DLManagedTensor to_dlpack(
-  @Const @ByRef table_view input);
-// Targeting ../column_metadata.java
-
-
-
-/**
- * \brief Create {@code arrow::Table} from cudf table {@code input}
- *
- * Converts the {@code cudf::table_view} to {@code arrow::Table} with the provided
- * metadata {@code column_names}.
- *
- * @throws cudf::logic_error if {@code column_names} size doesn't match with number of columns.
- *
- * @param input table_view that needs to be converted to arrow Table
- * @param metadata Contains hierarchy of names of columns and children
- * @param ar_mr arrow memory pool to allocate memory for arrow Table
- * @return arrow Table generated from {@code input}
- **/
-@Namespace("cudf") public static native @SharedPtr Table to_arrow(@ByVal table_view input,
-                                       @StdVector column_metadata metadata/*={}*/,
-                                       MemoryPool ar_mr/*=arrow::default_memory_pool()*/);
-@Namespace("cudf") public static native @SharedPtr Table to_arrow(@ByVal table_view input);
-
-/**
- * \brief Create {@code cudf::table} from given arrow Table input
- *
- * @param input arrow:Table that needs to be converted to {@code cudf::table}
- * @param mr    Device memory resource used to allocate {@code cudf::table}
- * @return cudf table generated from given arrow Table.
- **/
-
-@Namespace("cudf") public static native @UniquePtr table from_arrow(
-  @Const @ByRef Table input,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table from_arrow(
-  @Const @ByRef Table input);
-
-/** \} */  // end of group
-  // namespace cudf
-
-
-// Parsed from cudf/ipc.hpp
-
-// #include <arrow/api.h>
-// #include <arrow/gpu/cuda_api.h>
-// #include <arrow/io/memory.h>
-// #include <arrow/ipc/api.h>
-// Targeting ../CudaMessageReader.java
-
-
-
-
-// Parsed from cudf/join.hpp
-
-/*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// #pragma once
-
-// #include <cudf/table/table_view.hpp>
-// #include <cudf/types.hpp>
-
-// #include <rmm/cuda_stream_view.hpp>
-
-// #include <vector>
-/**
- * \addtogroup column_join
- * \{
- * \file
- */
-
-/**
- * \brief Performs an inner join on the specified columns of two
- * tables ({@code left}, {@code right})
- *
- * Inner Join returns rows from both tables as long as the values
- * in the columns being joined on match.
- *
- * <pre>{@code {.pseudo}
- *          Left a: {0, 1, 2}
- *          Right b: {1, 2, 3}, a: {1, 2, 5}
- *          left_on: {0}
- *          right_on: {1}
- *          columns_in_common: { {0, 1} }
- * Result: { a: {1, 2}, b: {1, 2} }
- *
- *          Left a: {0, 1, 2}
- *          Right b: {1, 2, 3}, c: {1, 2, 5}
- *          left_on: {0}
- *          right_on: {0}
- *          columns_in_common: { }
- * Result: { a: {1, 2}, b: {1, 2}, c: {1, 2} }
- * }</pre>
- *
- * @throws cudf::logic_error if {@code columns_in_common} contains a pair of indices
- * (L, R) if L does not exist in {@code left_on} or R does not exist in {@code right_on}.
- * @throws cudf::logic_error if {@code columns_in_common} contains a pair of indices
- * (L, R) such that the location of {@code L} within {@code left_on} is not equal to
- * location of R within {@code right_on}
- * @throws cudf::logic_error if number of elements in {@code left_on} or {@code right_on}
- * mismatch.
- * @throws cudf::logic_error if number of columns in either {@code left} or {@code right}
- * table is 0 or exceeds MAX_JOIN_SIZE
- * @throws std::out_of_range if element of {@code left_on} or {@code right_on} exceed the
- * number of columns in the left or right table.
- *
- * @param left [in] The left table
- * @param right [in] The right table
- * @param left_on [in] The column indices from {@code left} to join on.
- * The column from {@code left} indicated by {@code left_on[i]} will be compared against the column
- * from {@code right} indicated by {@code right_on[i]}.
- * @param right_on [in] The column indices from {@code right} to join on.
- * The column from {@code right} indicated by {@code right_on[i]} will be compared against the column
- * from {@code left} indicated by {@code left_on[i]}.
- * @param columns_in_common [in] is a vector of pairs of column indices into
- * {@code left} and {@code right}, respectively, that are "in common". For "common"
- * columns, only a single output column will be produced, which is gathered
- * from {@code left_on} columns. Else, for every column in {@code left_on} and {@code right_on},
- * an output column will be produced.  For each of these pairs (L, R), L
- * should exist in {@code left_on} and R should exist in {@code right_on}.
- * @param compare_nulls [in] controls whether null join-key values
- * should match or not.
- * @param mr Device memory resource used to allocate the returned table and columns' device memory
- *
- * @return Result of joining {@code left} and {@code right} tables on the columns
- * specified by {@code left_on} and {@code right_on}. The resulting table will be joined columns of
- * {@code left(including common columns)+right(excluding common columns)}.
- */
-@Namespace("cudf") public static native @UniquePtr table inner_join(
-  @Const @ByRef table_view left,
-  @Const @ByRef table_view right,
-  @StdVector size_type left_on,
-  @StdVector size_type right_on,
-  @StdVector std::pair<cudf::size_type,cudf::size_type> columns_in_common,
-  @ByVal(nullValue = "null_equality::EQUAL") null_equality compare_nulls,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table inner_join(
-  @Const @ByRef table_view left,
-  @Const @ByRef table_view right,
-  @StdVector size_type left_on,
-  @StdVector size_type right_on,
-  @StdVector std::pair<cudf::size_type,cudf::size_type> columns_in_common);
-
-/**
- * \brief Performs a left join (also known as left outer join) on the
- * specified columns of two tables ({@code left}, {@code right})
- *
- * Left Join returns all the rows from the left table and those rows from the
- * right table that match on the joined columns.
- * For rows from the right table that do not have a match, the corresponding
- * values in the left columns will be null.
- *
- * <pre>{@code {.pseudo}
- *          Left a: {0, 1, 2}
- *          Right b: {1, 2, 3}, a: {1 ,2 ,5}
- *          left_on: {0}
- *          right_on: {1}
- *          columns_in_common: { {0, 1} }
- * Result: { a: {0, 1, 2}, b: {NULL, 1, 2} }
- *
- *          Left a: {0, 1, 2}
- *          Right b: {1, 2, 3}, c: {1, 2, 5}
- *          left_on: {0}
- *          right_on: {0}
- *          columns_in_common: { }
- * Result: { a: {0, 1, 2}, b: {NULL, 1, 2}, c: {NULL, 1, 2} }
- * }</pre>
- *
- * @throws cudf::logic_error if {@code columns_in_common} contains a pair of indices
- * (L, R) if L does not exist in {@code left_on} or R does not exist in {@code right_on}.
- * @throws cudf::logic_error if {@code columns_in_common} contains a pair of indices
- * (L, R) such that the location of {@code L} within {@code left_on} is not equal to
- * location of R within {@code right_on}
- * @throws cudf::logic_error if number of elements in {@code left_on} or {@code right_on}
- * mismatch.
- * @throws cudf::logic_error if number of columns in either {@code left} or {@code right}
- * table is 0 or exceeds MAX_JOIN_SIZE
- * @throws std::out_of_range if element of {@code left_on} or {@code right_on} exceed the
- * number of columns in the left or right table.
- *
- * @param left [in] The left table
- * @param right [in] The right table
- * @param left_on [in] The column indices from {@code left} to join on.
- * The column from {@code left} indicated by {@code left_on[i]} will be compared against the column
- * from {@code right} indicated by {@code right_on[i]}.
- * @param right_on [in] The column indices from {@code right} to join on.
- * The column from {@code right} indicated by {@code right_on[i]} will be compared against the column
- * from {@code left} indicated by {@code left_on[i]}.
- * @param columns_in_common [in] is a vector of pairs of column indices into
- * {@code left} and {@code right}, respectively, that are "in common". For "common"
- * columns, only a single output column will be produced, which is gathered
- * from {@code left_on} columns. Else, for every column in {@code left_on} and {@code right_on},
- * an output column will be produced.  For each of these pairs (L, R), L
- * should exist in {@code left_on} and R should exist in {@code right_on}.
- * @param compare_nulls [in] controls whether null join-key values
- * should match or not.
- * @param mr Device memory resource used to allocate the returned table and columns' device memory
- *
- * @return Result of joining {@code left} and {@code right} tables on the columns
- * specified by {@code left_on} and {@code right_on}. The resulting table will be joined columns of
- * {@code left(including common columns)+right(excluding common columns)}.
- */
-@Namespace("cudf") public static native @UniquePtr table left_join(
-  @Const @ByRef table_view left,
-  @Const @ByRef table_view right,
-  @StdVector size_type left_on,
-  @StdVector size_type right_on,
-  @StdVector std::pair<cudf::size_type,cudf::size_type> columns_in_common,
-  @ByVal(nullValue = "null_equality::EQUAL") null_equality compare_nulls,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table left_join(
-  @Const @ByRef table_view left,
-  @Const @ByRef table_view right,
-  @StdVector size_type left_on,
-  @StdVector size_type right_on,
-  @StdVector std::pair<cudf::size_type,cudf::size_type> columns_in_common);
-
-/**
- * \brief Performs a full join (also known as full outer join) on the
- * specified columns of two tables ({@code left}, {@code right})
- *
- * Full Join returns the rows that would be returned by a left join and those
- * rows from the right table that do not have a match.
- * For rows from the right table that do not have a match, the corresponding
- * values in the left columns will be null.
- *
- * <pre>{@code {.pseudo}
- *          Left a: {0, 1, 2}
- *          Right b: {1, 2, 3}, c: {1, 2, 5}
- *          left_on: {0}
- *          right_on: {1}
- *          columns_in_common: { {0, 1} }
- * Result: { a: {0, 1, 2, NULL}, b: {NULL, 1, 2, 3}, c: {NULL, 1, 2, 5} }
- *
- *          Left a: {0, 1, 2}
- *          Right b: {1, 2, 3}, c: {1, 2, 5}
- *          left_on: {0}
- *          right_on: {0}
- *          columns_in_common: { }
- * Result: { a: {0, 1, 2, NULL}, b: {NULL, 1, 2, 3}, c: {NULL, 1, 2, 5} }
- * }</pre>
- *
- * @throws cudf::logic_error if {@code columns_in_common} contains a pair of indices
- * (L, R) if L does not exist in {@code left_on} or R does not exist in {@code right_on}.
- * @throws cudf::logic_error if {@code columns_in_common} contains a pair of indices
- * (L, R) such that the location of {@code L} within {@code left_on} is not equal to
- * location of R within {@code right_on}
- * @throws cudf::logic_error if number of elements in {@code left_on} or {@code right_on}
- * mismatch.
- * @throws cudf::logic_error if number of columns in either {@code left} or {@code right}
- * table is 0 or exceeds MAX_JOIN_SIZE
- * @throws std::out_of_range if element of {@code left_on} or {@code right_on} exceed the
- * number of columns in the left or right table.
- *
- * @param left [in] The left table
- * @param right [in] The right table
- * @param left_on [in] The column indices from {@code left} to join on.
- * The column from {@code left} indicated by {@code left_on[i]} will be compared against the column
- * from {@code right} indicated by {@code right_on[i]}.
- * @param right_on [in] The column indices from {@code right} to join on.
- * The column from {@code right} indicated by {@code right_on[i]} will be compared against the column
- * from {@code left} indicated by {@code left_on[i]}.
- * @param columns_in_common [in] is a vector of pairs of column indices into
- * {@code left} and {@code right}, respectively, that are "in common". For "common"
- * columns, only a single output column will be produced, which is gathered
- * from {@code left_on} columns. Else, for every column in {@code left_on} and {@code right_on},
- * an output column will be produced.  For each of these pairs (L, R), L
- * should exist in {@code left_on} and R should exist in {@code right_on}.
- * @param compare_nulls [in] controls whether null join-key values
- * should match or not.
- * @param mr Device memory resource used to allocate the returned table and columns' device memory
- *
- * @return Result of joining {@code left} and {@code right} tables on the columns
- * specified by {@code left_on} and {@code right_on}. The resulting table will be joined columns of
- * {@code left(including common columns)+right(excluding common columns)}.
- */
-@Namespace("cudf") public static native @UniquePtr table full_join(
-  @Const @ByRef table_view left,
-  @Const @ByRef table_view right,
-  @StdVector size_type left_on,
-  @StdVector size_type right_on,
-  @StdVector std::pair<cudf::size_type,cudf::size_type> columns_in_common,
-  @ByVal(nullValue = "null_equality::EQUAL") null_equality compare_nulls,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table full_join(
-  @Const @ByRef table_view left,
-  @Const @ByRef table_view right,
-  @StdVector size_type left_on,
-  @StdVector size_type right_on,
-  @StdVector std::pair<cudf::size_type,cudf::size_type> columns_in_common);
-/**
- * \brief Performs a left semi join on the specified columns of two
- * tables ({@code left}, {@code right})
- *
- * A left semi join only returns data from the left table, and only
- * returns rows that exist in the right table.
- *
- * <pre>{@code {.pseudo}
- *          TableA a: {0, 1, 2}
- *          TableB b: {1, 2, 3}, a: {1, 2, 5}
- *          left_on: {0}
- *          right_on: {1}
- *          return_columns: { 0 }
- * Result: { a: {1, 2} }
- *
- *          TableA a: {0, 1, 2}, c: {1, 2, 5}
- *          TableB b: {1, 2, 3}
- *          left_on: {0}
- *          right_on: {0}
- *          return_columns: { 1 }
- * Result: { c: {1, 2} }
- * }</pre>
- *
- * @throws cudf::logic_error if the number of columns in either {@code left} or {@code right} table is 0
- * @throws cudf::logic_error if the number of returned columns is 0
- * @throws cudf::logic_error if the number of elements in {@code left_on} and {@code right_on} are not equal
- *
- * @param left [in]             The left table
- * @param right [in]            The right table
- * @param left_on [in]          The column indices from {@code left} to join on.
- *                             The column from {@code left} indicated by {@code left_on[i]}
- *                             will be compared against the column from {@code right}
- *                             indicated by {@code right_on[i]}.
- * @param right_on [in]         The column indices from {@code right} to join on.
- *                             The column from {@code right} indicated by {@code right_on[i]}
- *                             will be compared against the column from {@code left}
- *                             indicated by {@code left_on[i]}.
- * @param return_columns [in]   A vector of column indices from {@code left} to
- *                             include in the returned table.
- * @param compare_nulls [in]    Controls whether null join-key values should match or not.
- * @param mr [in]               Device memory resource used to allocate the returned table's
- *                             device memory
- *
- * @return                     Result of joining {@code left} and {@code right} tables on the columns
- *                             specified by {@code left_on} and {@code right_on}. The resulting table
- *                             will contain {@code return_columns} from {@code left} that match in right.
- */
-@Namespace("cudf") public static native @UniquePtr table left_semi_join(
-  @Const @ByRef table_view left,
-  @Const @ByRef table_view right,
-  @StdVector size_type left_on,
-  @StdVector size_type right_on,
-  @StdVector size_type return_columns,
-  @ByVal(nullValue = "null_equality::EQUAL") null_equality compare_nulls,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table left_semi_join(
-  @Const @ByRef table_view left,
-  @Const @ByRef table_view right,
-  @StdVector size_type left_on,
-  @StdVector size_type right_on,
-  @StdVector size_type return_columns);
-
-/**
- * \brief Performs a left anti join on the specified columns of two
- * tables ({@code left}, {@code right})
- *
- * A left anti join only returns data from the left table, and only
- * returns rows that do not exist in the right table.
- *
- * <pre>{@code {.pseudo}
- *          TableA a: {0, 1, 2}
- *          TableB b: {1, 2, 3}, a: {1, 2, 5}
- *          left_on: {0}
- *          right_on: {1}
- *          return_columns: { 0 }
- * Result: { a: {0} }
- *
- *          TableA a: {0, 1, 2}, c: {1, 2, 5}
- *          TableB b: {1, 2, 3}
- *          left_on: {0}
- *          right_on: {0}
- *          return_columns: { 1 }
- * Result: { c: {1} }
- * }</pre>
- *
- * @throws cudf::logic_error if the number of columns in either {@code left} or {@code right} table is 0
- * @throws cudf::logic_error if the number of returned columns is 0
- * @throws cudf::logic_error if the number of elements in {@code left_on} and {@code right_on} are not equal
- *
- * @param left [in]             The left table
- * @param right [in]            The right table
- * @param left_on [in]          The column indices from {@code left} to join on.
- *                             The column from {@code left} indicated by {@code left_on[i]}
- *                             will be compared against the column from {@code right}
- *                             indicated by {@code right_on[i]}.
- * @param right_on [in]         The column indices from {@code right} to join on.
- *                             The column from {@code right} indicated by {@code right_on[i]}
- *                             will be compared against the column from {@code left}
- *                             indicated by {@code left_on[i]}.
- * @param return_columns [in]   A vector of column indices from {@code left} to
- *                             include in the returned table.
- * @param compare_nulls [in]    Controls whether null join-key values should match or not.
- * @param mr [in]               Device memory resource used to allocate the returned table's
- *                             device memory
- *
- * @return                     Result of joining {@code left} and {@code right} tables on the columns
- *                             specified by {@code left_on} and {@code right_on}. The resulting table
- *                             will contain {@code return_columns} from {@code left} that match in right.
- */
-@Namespace("cudf") public static native @UniquePtr table left_anti_join(
-  @Const @ByRef table_view left,
-  @Const @ByRef table_view right,
-  @StdVector size_type left_on,
-  @StdVector size_type right_on,
-  @StdVector size_type return_columns,
-  @ByVal(nullValue = "null_equality::EQUAL") null_equality compare_nulls,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table left_anti_join(
-  @Const @ByRef table_view left,
-  @Const @ByRef table_view right,
-  @StdVector size_type left_on,
-  @StdVector size_type right_on,
-  @StdVector size_type return_columns);
-
-/**
- * \brief Performs a cross join on two tables ({@code left}, {@code right})
- *
- * The cross join returns the cartesian product of rows from each table.
- *
- * \note Warning: This function can easily cause out-of-memory errors. The size of the output is
- * equal to {@code left.num_rows() * right.num_rows()}. Use with caution.
- *
- * <pre>{@code {.pseudo}
- *          Left a: {0, 1, 2}
- *          Right b: {3, 4, 5}
- * Result: { a: {0, 0, 0, 1, 1, 1, 2, 2, 2}, b: {3, 4, 5, 3, 4, 5, 3, 4, 5} }
- * }</pre>
- <p>
- * @throws cudf::logic_error if the number of columns in either {@code left} or {@code right} table is 0
- *
- * @param left  The left table
- * @param right The right table
- * @param mr    Device memory resource used to allocate the returned table's device memory
- *
- * @return     Result of cross joining {@code left} and {@code right} tables
- */
-@Namespace("cudf") public static native @UniquePtr table cross_join(
-  @Const @ByRef table_view left,
-  @Const @ByRef table_view right,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table cross_join(
-  @Const @ByRef table_view left,
-  @Const @ByRef table_view right);
-// Targeting ../hash_join.java
-
-
-
-/** \} */  // end of group
-  // namespace cudf
-
-
-// Parsed from cudf/merge.hpp
-
-/*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// #pragma once
-
-// #include <cudf/types.hpp>
-// #include <memory>
-// #include <vector>
-/**
- * \addtogroup column_merge
- * \{
- * \file
- */
-
-/**
- * \brief Merge a set of sorted tables.
- *
- * Merges sorted tables into one sorted table
- * containing data from all tables.
- *
- * <pre>{@code
- * Example 1:
- * input:
- * table 1 => col 1 {0, 1, 2, 3}
- *            col 2 {4, 5, 6, 7}
- * table 2 => col 1 {1, 2}
- *            col 2 {8, 9}
- * table 3 => col 1 {2, 4}
- *            col 2 {8, 9}
- * output:
- * table => col 1 {0, 1, 1, 2, 2, 2, 3, 4}
- *          col 2 {4, 5, 8, 6, 8, 9, 7, 9}
- * }</pre>
- * <pre>{@code
- * Example 2:
- * input:
- * table 1 => col 0 {1, 0}
- *            col 1 {'c', 'b'}
- *            col 2 {RED, GREEN}
- *
- *
- * table 2 => col 0 {1}
- *            col 1 {'a'}
- *            col 2 {NULL}
- *
- *  with key_cols[] = {0,1}
- *  and  asc_desc[] = {ASC, ASC};
- *
- *  Lex-sorting is on columns {0,1}; hence, lex-sorting of ((L0 x L1) V (R0 x R1)) is:
- *  (0,'b', GREEN), (1,'a', NULL), (1,'c', RED)
- *
- *  (third column, the "color", just "goes along for the ride";
- *   meaning is permutted according to the data movements dictated
- *   by lexicographic ordering of columns 0 and 1);
- *
- *   with result columns:
- *
- *   Res0 = {0,1,1}
- *   Res1 = {'b', 'a', 'c'}
- *   Res2 = {GREEN, NULL, RED}
- * }</pre>
- *
- * @throws cudf::logic_error if tables in {@code tables_to_merge} have different
- * number of columns
- * @throws cudf::logic_error if tables in {@code tables_to_merge} have columns with
- * mismatched types
- * @throws cudf::logic_error if {@code key_cols} is empty
- * @throws cudf::logic_error if {@code key_cols} size is larger than the number of
- * columns in {@code tables_to_merge} tables
- * @throws cudf::logic_error if {@code key_cols} size and {@code column_order} size mismatches
- *
- * @param tables_to_merge [in] Non-empty list of tables to be merged
- * @param key_cols [in] Indices of left_cols and right_cols to be used
- *                     for comparison criteria
- * @param column_order [in] Sort order types of columns indexed by key_cols
- * @param null_precedence [in] Array indicating the order of nulls with respect
- * to non-nulls for the indexing columns (key_cols)
- *
- * @return A table containing sorted data from all input tables
- */
-@Namespace("cudf") public static native @UniquePtr table merge(
-  @StdVector table_view tables_to_merge,
-  @StdVector size_type key_cols,
-  @StdVector order column_order,
-  @StdVector null_order null_precedence/*={}*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table merge(
-  @StdVector table_view tables_to_merge,
-  @StdVector size_type key_cols,
-  @StdVector order column_order);
-
-/** \} */  // end of group
-  // namespace cudf
-
-
-// Parsed from cudf/null_mask.hpp
-
-/*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-// #pragma once
-
-// #include <cudf/types.hpp>
-
-// #include <rmm/device_buffer.hpp>
-
-// #include <vector>
-
-/**
- * \addtogroup column_nullmask
- * \{
- * \file
- * \brief APIs for managing validity bitmasks
- */
-
-/**
- * \brief Returns the null count for a null mask of the specified {@code state}
- * representing {@code size} elements.
- *
- * @param state The state of the null mask
- * @param size The number of elements represented by the mask
- * @return size_type The count of null elements
- **/
-@Namespace("cudf") public static native @ByVal size_type state_null_count(@ByVal mask_state state, @ByVal size_type size);
-
-/**
- * \brief Computes the required bytes necessary to represent the specified
- * number of bits with a given padding boundary.
- *
- * \note The Arrow specification for the null bitmask requires a 64B padding
- * boundary.
- *
- * @param number_of_bits The number of bits that need to be represented
- * @param padding_boundary The value returned will be rounded up to a multiple
- * of this value
- * @return std::size_t The necessary number of bytes
- **/
-@Namespace("cudf") public static native @ByVal @Cast("std::size_t*") SizeTPointer bitmask_allocation_size_bytes(@ByVal size_type number_of_bits,
-                                          @ByVal(nullValue = "std::size_t(64)") @Cast("std::size_t*") SizeTPointer padding_boundary);
-@Namespace("cudf") public static native @ByVal @Cast("std::size_t*") SizeTPointer bitmask_allocation_size_bytes(@ByVal size_type number_of_bits);
-
-/**
- * \brief Returns the number of {@code bitmask_type} words required to represent the
- * specified number of bits.
- *
- * Unlike {@code bitmask_allocation_size_bytes}, which returns the number of *bytes*
- * needed for a bitmask allocation (including padding), this function returns
- * the *actual* number {@code bitmask_type} elements necessary to represent
- * {@code number_of_bits}. This is useful when one wishes to process all of the bits
- * in a bitmask and ignore the padding/slack bits.
- *
- * @param number_of_bits The number of bits that need to be represented
- * @return size_type The necessary number of {@code bitmask_type} elements
- */
-@Namespace("cudf") public static native @ByVal size_type num_bitmask_words(@ByVal size_type number_of_bits);
-
-/**
- * \brief Creates a {@code device_buffer} for use as a null value indicator bitmask of
- * a {@code column}.
- *
- * @param size The number of elements to be represented by the mask
- * @param state The desired state of the mask
- * @param mr Device memory resource used to allocate the returned device_buffer.
- * @return rmm::device_buffer A {@code device_buffer} for use as a null bitmask
- * satisfying the desired size and state
- **/
-@Namespace("cudf") public static native @ByVal device_buffer create_null_mask(
-  @ByVal size_type size,
-  @ByVal mask_state state,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal device_buffer create_null_mask(
-  @ByVal size_type size,
-  @ByVal mask_state state);
-
-/**
- * \brief Sets a pre-allocated bitmask buffer to a given state in the range
- *  {@code [begin_bit, end_bit)}
- *
- * Sets {@code [begin_bit, end_bit)} bits of bitmask to valid if {@code valid==true}
- * or null otherwise.
- *
- * @param bitmask Pointer to bitmask (e.g. returned by {@code column_view.null_mask()})
- * @param begin_bit Index of the first bit to set (inclusive)
- * @param end_bit Index of the last bit to set (exclusive)
- * @param valid If true set all entries to valid; otherwise, set all to null.
- **/
-@Namespace("cudf") public static native void set_null_mask(bitmask_type bitmask, @ByVal size_type begin_bit, @ByVal size_type end_bit, @Cast("bool") boolean valid);
-
-/**
- * \brief Given a bitmask, counts the number of set (1) bits in the range
- * {@code [start, stop)}
- *
- * Returns {@code 0} if {@code bitmask == nullptr}.
- *
- * @throws cudf::logic_error if {@code start > stop}
- * @throws cudf::logic_error if {@code start < 0}
- *
- * @param bitmask Bitmask residing in device memory whose bits will be counted
- * @param start_bit Index of the first bit to count (inclusive)
- * @param stop_bit Index of the last bit to count (exclusive)
- * @return The number of non-zero bits in the specified range
- **/
-@Namespace("cudf") public static native @ByVal size_type count_set_bits(@Const bitmask_type bitmask, @ByVal size_type start, @ByVal size_type stop);
-
-/**
- * \brief Given a bitmask, counts the number of unset (0) bits  in the range
- *{@code [start, stop)}.
- *
- * Returns {@code 0} if {@code bitmask == nullptr}.
- *
- * @throws cudf::logic_error if {@code start > stop}
- * @throws cudf::logic_error if {@code start < 0}
- *
- * @param bitmask Bitmask residing in device memory whose bits will be counted
- * @param start_bit Index of the first bit to count (inclusive)
- * @param stop_bit Index of the last bit to count (exclusive)
- * @return The number of zero bits in the specified range
- **/
-@Namespace("cudf") public static native @ByVal size_type count_unset_bits(@Const bitmask_type bitmask, @ByVal size_type start, @ByVal size_type stop);
-
-/**
- * \brief Given a bitmask, counts the number of set (1) bits in every range
- * {@code [indices[2*i], indices[(2*i)+1])} (where 0 <= i < indices.size() / 2).
- *
- * Returns an empty vector if {@code bitmask == nullptr}.
- * @throws cudf::logic_error if {@code indices.size() % 2 != 0}
- * @throws cudf::logic_error if {@code indices[2*i] < 0 or
- * indices[2*i] > indices[(2*i)+1]}
- *
- * @param bitmask [in] Bitmask residing in device memory whose bits will be
- * counted
- * @param indices [in] A vector of indices used to specify ranges to count the
- * number of set bits
- * @return std::vector<size_type> A vector storing the number of non-zero bits
- * in the specified ranges
- */
-@Namespace("cudf") public static native @StdVector size_type segmented_count_set_bits(@Const bitmask_type bitmask,
-                                                @StdVector size_type indices);
-
-/**
- * \brief Given a bitmask, counts the number of unset (0) bits in every range
- * {@code [indices[2*i], indices[(2*i)+1])} (where 0 <= i < indices.size() / 2).
- *
- * Returns an empty vector if {@code bitmask == nullptr}.
- * @throws cudf::logic_error if {@code indices.size() % 2 != 0}
- * @throws cudf::logic_error if {@code indices[2*i] < 0 or
- * indices[2*i] > indices[(2*i)+1]}
- *
- * @param bitmask [in] Bitmask residing in device memory whose bits will be
- * counted
- * @param indices [in] A vector of indices used to specify ranges to count the
- * number of unset bits
- * @return std::vector<size_type> A vector storing the number of zero bits in
- * the specified ranges
- */
-@Namespace("cudf") public static native @StdVector size_type segmented_count_unset_bits(@Const bitmask_type bitmask,
-                                                  @StdVector size_type indices);
-
-/**
- * \brief Creates a {@code device_buffer} from a slice of bitmask defined by a range
- * of indices {@code [begin_bit, end_bit)}.
- *
- * Returns empty {@code device_buffer} if {@code bitmask == nullptr}.
- *
- * @throws cudf::logic_error if {@code begin_bit > end_bit}
- * @throws cudf::logic_error if {@code begin_bit < 0}
- *
- * @param mask Bitmask residing in device memory whose bits will be copied
- * @param begin_bit Index of the first bit to be copied (inclusive)
- * @param end_bit Index of the last bit to be copied (exclusive)
- * @param mr Device memory resource used to allocate the returned device_buffer
- * @return rmm::device_buffer A {@code device_buffer} containing the bits
- * {@code [begin_bit, end_bit)} from {@code mask}.
- **/
-@Namespace("cudf") public static native @ByVal device_buffer copy_bitmask(
-  @Const bitmask_type mask,
-  @ByVal size_type begin_bit,
-  @ByVal size_type end_bit,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal device_buffer copy_bitmask(
-  @Const bitmask_type mask,
-  @ByVal size_type begin_bit,
-  @ByVal size_type end_bit);
-
-/**
- * \brief Copies {@code view}'s bitmask from the bits
- * {@code [view.offset(), view.offset() + view.size())} into a {@code device_buffer}
- *
- * Returns empty {@code device_buffer} if the column is not nullable
- *
- * @param view Column view whose bitmask needs to be copied
- * @param mr Device memory resource used to allocate the returned device_buffer
- * @return rmm::device_buffer A {@code device_buffer} containing the bits
- * {@code [view.offset(), view.offset() + view.size())} from {@code view}'s bitmask.
- **/
-@Namespace("cudf") public static native @ByVal device_buffer copy_bitmask(
-  @Const @ByRef column_view view,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal device_buffer copy_bitmask(
-  @Const @ByRef column_view view);
-
-/**
- * \brief Returns a bitwise AND of the bitmasks of columns of a table
- *
- * If any of the columns isn't nullable, it is considered all valid.
- * If no column in the table is nullable, an empty bitmask is returned.
- *
- * @param view The table of columns
- * @param mr Device memory resource used to allocate the returned device_buffer
- * @return rmm::device_buffer Output bitmask
- */
-@Namespace("cudf") public static native @ByVal device_buffer bitmask_and(
-  @Const @ByRef table_view view,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal device_buffer bitmask_and(
-  @Const @ByRef table_view view);
-
-/** \} */  // end of group
-  // namespace cudf
-
-
-// Parsed from cudf/partitioning.hpp
-
-/*
- * Copyright (c) 2020, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// #pragma once
-
-// #include <cudf/types.hpp>
-// #include <memory>
-// #include <vector>
-/**
- * \addtogroup reorder_partition
- * \{
- * \file
- * \brief Column partitioning APIs
- */
-
-/**
- * \brief Partitions rows of {@code t} according to the mapping specified by
- * {@code partition_map}.
- *
- * For each row at {@code i} in {@code t}, {@code partition_map[i]} indicates which partition row
- * {@code i} belongs to. {@code partition} creates a new table by rearranging the rows of
- * {@code t} such that rows in the same partition are contiguous. The returned table
- * is in ascending partition order from {@code [0, num_partitions)}. The order within
- * each partition is undefined.
- *
- * Returns a {@code vector<size_type>} of {@code num_partitions + 1} values that indicate
- * the starting position of each partition within the returned table, i.e.,
- * partition {@code i} starts at {@code offsets[i]} (inclusive) and ends at {@code offset[i+1]}
- * (exclusive). As a result, if value {@code j} in {@code [0, num_partitions)} does not
- * appear in {@code partition_map}, partition {@code j} will be empty, i.e.,
- * {@code offsets[j+1] - offsets[j] == 0}.
- *
- * Values in {@code partition_map} must be in the range {@code [0, num_partitions)},
- * otherwise behavior is undefined.
- *
- * @throws cudf::logic_error when {@code partition_map} is a non-integer type
- * @throws cudf::logic_error when {@code partition_map.has_nulls() == true}
- * @throws cudf::logic_error when {@code partition_map.size() != t.num_rows()}
- *
- * @param t The table to partition
- * @param partition_map Non-nullable column of integer values that map each row
- * in {@code t} to it's partition.
- * @param num_partitions The total number of partitions.
- * @param mr Device memory resource used to allocate the returned table's device memory.
- * @return Pair containing the reordered table and vector of {@code num_partitions +
- * 1} offsets to each partition such that the size of partition {@code i} is
- * determined by {@code offset[i+1] - offset[i]}.
- */
-@Namespace("cudf") public static native @ByVal std::pair<std::unique_ptr<table>,std::vector<size_type> > partition(
-  @Const @ByRef table_view t,
-  @Const @ByRef column_view partition_map,
-  @ByVal size_type num_partitions,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal std::pair<std::unique_ptr<table>,std::vector<size_type> > partition(
-  @Const @ByRef table_view t,
-  @Const @ByRef column_view partition_map,
-  @ByVal size_type num_partitions);
-
-/**
- * \brief Partitions rows from the input table into multiple output tables.
- *
- * Partitions rows of {@code input} into {@code num_partitions} bins based on the hash
- * value of the columns specified by {@code columns_to_hash}. Rows partitioned into
- * the same bin are grouped consecutively in the output table. Returns a vector
- * of row offsets to the start of each partition in the output table.
- *
- * @throws std::out_of_range if index is {@code columns_to_hash} is invalid
- *
- * @param input The table to partition
- * @param columns_to_hash Indices of input columns to hash
- * @param num_partitions The number of partitions to use
- * @param mr Device memory resource used to allocate the returned table's device memory.
- *
- * @return An output table and a vector of row offsets to each partition
- */
-@Namespace("cudf") public static native @ByVal std::pair<std::unique_ptr<table>,std::vector<size_type> > hash_partition(
-  @Const @ByRef table_view input,
-  @StdVector size_type columns_to_hash,
-  int num_partitions,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal std::pair<std::unique_ptr<table>,std::vector<size_type> > hash_partition(
-  @Const @ByRef table_view input,
-  @StdVector size_type columns_to_hash,
-  int num_partitions);
-
-/**
- * \brief Round-robin partition.
- *
- * Returns a new table with rows re-arranged into partition groups and
- * a vector of row offsets to the start of each partition in the output table.
- * Rows are assigned partitions based on their row index in the table,
- * in a round robin fashion.
- *
- * @throws cudf::logic_error if {@code num_partitions <= 1}
- * @throws cudf::logic_error if {@code start_partition >= num_partitions}
- *
- * A good analogy for the algorithm is dealing out cards:
- *
- *  1. The deck of cards is represented as the rows in the table.
- *  2. The number of partitions is the number of players being dealt cards.
- *  3. the start_partition indicates which player starts getting cards first.
- *
- * The algorithm has two outcomes:
- *
- *  1. Another deck of cards formed by stacking each
- *      player's cards back into a deck again,
- *      preserving the order of cards dealt to each player,
- *      starting with player 0.
- *  2. A vector into the output deck indicating where a player's cards start.
- *
- * A player's deck (partition) is the range of cards starting
- * at the corresponding offset and ending at the next player's
- * starting offset or the last card in the deck if it's the last player.
- *
- * When num_partitions > nrows, we have more players than cards.
- * We start dealing to the first indicated player and continuing
- * around the players until we run out of cards before we run out of players.
- * Players that did not get any cards are represented by
- * {@code offset[i] == offset[i+1] or
- * offset[i] == table.num_rows() if i == num_partitions-1}
- * meaning there are no cards (rows) in their deck (partition).
- *
- * <pre>{@code
- * Example 1:
- * input:
- * table => col 1 {0, ..., 12}
- * num_partitions = 3
- * start_partition = 0
- *
- * output: pair<table, partition_offsets>
- * table => col 1 {0,3,6,9,12,1,4,7,10,2,5,8,11}
- * partition_offsets => {0,5,9}
- *
- * Example 2:
- * input:
- * table => col 1 {0, ..., 12}
- * num_partitions = 3
- * start_partition = 1
- *
- * output: pair<table, partition_offsets>
- * table => col 1 {2,5,8,11,0,3,6,9,12,1,4,7,10}
- * partition_offsets => {0,4,9}
- *
- * Example 3:
- * input:
- * table => col 1 {0, ..., 10}
- * num_partitions = 3
- * start_partition = 0
- *
- * output: pair<table, partition_offsets>
- * table => col 1 {0,3,6,9,1,4,7,10,2,5,8}
- * partition_offsets => {0,4,8}
- *
- * Example 4:
- * input:
- * table => col 1 {0, ..., 10}
- * num_partitions = 3
- * start_partition = 1
- *
- * output: pair<table, partition_offsets>
- * table => col 1 {2,5,8,0,3,6,9,1,4,7,10}
- * partition_offsets => {0,3,7}
- *
- * Example 5:
- * input:
- * table => col 1 {0, ..., 10}
- * num_partitions = 3
- * start_partition = 2
- *
- * output: pair<table, partition_offsets>
- * table => col 1 {1,4,7,10,2,5,8,0,3,6,9}
- * partition_offsets => {0,4,7}
- *
- * Example 6:
- * input:
- * table => col 1 {0, ..., 10}
- * num_partitions = 15 > num_rows = 11
- * start_partition = 2
- *
- * output: pair<table, partition_offsets>
- * table => col 1 {0,1,2,3,4,5,6,7,8,9,10}
- * partition_offsets => {0,0,0,1,2,3,4,5,6,7,8,9,10,11,11}
- *
- * Example 7:
- * input:
- * table => col 1 {0, ..., 10}
- * num_partitions = 15 > num_rows = 11
- * start_partition = 10
- *
- * output: pair<table, partition_offsets>
- * table => col 1 {5,6,7,8,9,10,0,1,2,3,4}
- * partition_offsets => {0,1,2,3,4,5,6,6,6,6,6,7,8,9,10}
- *
- * Example 8:
- * input:
- * table => col 1 {0, ..., 10}
- * num_partitions = 15 > num_rows = 11
- * start_partition = 14
- *
- * output: pair<table, partition_offsets>
- * table => col 1 {1,2,3,4,5,6,7,8,9,10,0}
- * partition_offsets => {0,1,2,3,4,5,6,7,8,9,10,10,10,10,10}
- *
- * Example 9:
- * input:
- * table => col 1 {0, ..., 10}
- * num_partitions = 11 == num_rows = 11
- * start_partition = 2
- *
- * output: pair<table, partition_offsets>
- * table => col 1 {9,10,0,1,2,3,4,5,6,7,8}
- * partition_offsets => {0,1,2,3,4,5,6,7,8,9,10}
- * }</pre>
- *
- * @param input [in] The input table to be round-robin partitioned
- * @param num_partitions [in] Number of partitions for the table
- * @param start_partition [in] Index of the 1st partition
- * @param mr [in] Device memory resource used to allocate the returned table's device memory
- *
- * @return A std::pair consisting of a unique_ptr to the partitioned table
- * and the partition offsets for each partition within the table.
- */
-@Namespace("cudf") public static native @ByVal std::pair<std::unique_ptr<cudf::table>,std::vector<cudf::size_type> > round_robin_partition(
-  @Const @ByRef table_view input,
-  @ByVal size_type num_partitions,
-  @ByVal(nullValue = "cudf::size_type(0)") size_type start_partition,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal std::pair<std::unique_ptr<cudf::table>,std::vector<cudf::size_type> > round_robin_partition(
-  @Const @ByRef table_view input,
-  @ByVal size_type num_partitions);
-
-/** \} */  // end of group
-  // namespace cudf
-
-
-// Parsed from cudf/quantiles.hpp
-
-/*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// #pragma once
-
-// #include <cudf/scalar/scalar.hpp>
-// #include <cudf/table/table_view.hpp>
-// #include <cudf/types.hpp>
-/**
- * \addtogroup column_quantiles
- * \{
- * \file
- */
-
-/**
- * \brief Computes quantiles with interpolation.
- <p>
- * Computes the specified quantiles by interpolating values between which they
- * lie, using the interpolation strategy specified in {@code interp}.
- *
- * @param input [in]           Column from which to compute quantile values.
- * @param q [in]               Specified quantiles in range [0, 1].
- * @param interp [in]          Strategy used to select between values adjacent to
- *                            a specified quantile.
- * @param ordered_indices [in] Column containing the sorted order of {@code input}.
- *                            If the column is empty, all {@code input} values are
- *                            used in existing order. Indices must be in range
- *                            [0, {@code input.size()}), but are not required to be
- *                            unique. Values not indexed by this column will be
- *                            ignored.
- * @param exact [in]           If true, returns doubles.
- *                            If false, returns same type as input.
- <p>
- * @return Column of specified quantiles, with nulls for indeterminable values.
- */
-
-@Namespace("cudf") public static native @UniquePtr column quantile(
-  @Const @ByRef column_view input,
-  @StdVector DoublePointer q,
-  @ByVal(nullValue = "interpolation::LINEAR") interpolation interp,
-  @Const @ByRef(nullValue = "column_view({})") column_view ordered_indices,
-  @Cast("bool") boolean exact/*=true*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column quantile(
-  @Const @ByRef column_view input,
-  @StdVector DoublePointer q);
-@Namespace("cudf") public static native @UniquePtr column quantile(
-  @Const @ByRef column_view input,
-  @StdVector DoubleBuffer q,
-  @ByVal(nullValue = "interpolation::LINEAR") interpolation interp,
-  @Const @ByRef(nullValue = "column_view({})") column_view ordered_indices,
-  @Cast("bool") boolean exact/*=true*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column quantile(
-  @Const @ByRef column_view input,
-  @StdVector DoubleBuffer q);
-@Namespace("cudf") public static native @UniquePtr column quantile(
-  @Const @ByRef column_view input,
-  @StdVector double[] q,
-  @ByVal(nullValue = "interpolation::LINEAR") interpolation interp,
-  @Const @ByRef(nullValue = "column_view({})") column_view ordered_indices,
-  @Cast("bool") boolean exact/*=true*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column quantile(
-  @Const @ByRef column_view input,
-  @StdVector double[] q);
-
-/**
- * \brief Returns the rows of the input corresponding to the requested quantiles.
- *
- * Quantiles are cut points that divide the range of a dataset into continuous
- * intervals. e.g: quartiles are the three cut points that divide a dataset into
- * four equal-sized groups. See https://en.wikipedia.org/wiki/Quantile
- *
- * The indices used to gather rows are computed by interpolating between the
- * index on either side of the desired quantile. Since some columns may be
- * non-arithmetic, interpolation between rows is limited to non-arithmetic
- * strategies.
- *
- * Non-arithmetic interpolation strategies include HIGHER, LOWER, and NEAREST.
- *
- * quantiles {@code <= 0} correspond to row {@code 0}. (first)
- * quantiles {@code >= 1} correspond to row {@code input.size() - 1}. (last)
- *
- * @param input           Table used to compute quantile rows.
- * @param q               Desired quantiles in range [0, 1].
- * @param interp          Strategy used to select between the two rows on either
-                          side of the desired quantile.
- * @param sorted          Indicates if the input has been pre-sorted.
- * @param column_order    The desired sort order for each column.
- * @param null_precedence The desired order of null compared to other elements.
- *
- * @throws cudf::logic_error if {@code interp} is an arithmetic interpolation strategy
- * @throws cudf::logic_error if {@code input} is empty
- */
-@Namespace("cudf") public static native @UniquePtr table quantiles(
-  @Const @ByRef table_view input,
-  @StdVector DoublePointer q,
-  @ByVal(nullValue = "interpolation::NEAREST") interpolation interp,
-  @ByVal(nullValue = "cudf::sorted(sorted::NO)") sorted is_input_sorted,
-  @StdVector order column_order/*={}*/,
-  @StdVector null_order null_precedence/*={}*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table quantiles(
-  @Const @ByRef table_view input,
-  @StdVector DoublePointer q);
-@Namespace("cudf") public static native @UniquePtr table quantiles(
-  @Const @ByRef table_view input,
-  @StdVector DoubleBuffer q,
-  @ByVal(nullValue = "interpolation::NEAREST") interpolation interp,
-  @ByVal(nullValue = "cudf::sorted(sorted::NO)") sorted is_input_sorted,
-  @StdVector order column_order/*={}*/,
-  @StdVector null_order null_precedence/*={}*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table quantiles(
-  @Const @ByRef table_view input,
-  @StdVector DoubleBuffer q);
-@Namespace("cudf") public static native @UniquePtr table quantiles(
-  @Const @ByRef table_view input,
-  @StdVector double[] q,
-  @ByVal(nullValue = "interpolation::NEAREST") interpolation interp,
-  @ByVal(nullValue = "cudf::sorted(sorted::NO)") sorted is_input_sorted,
-  @StdVector order column_order/*={}*/,
-  @StdVector null_order null_precedence/*={}*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table quantiles(
-  @Const @ByRef table_view input,
-  @StdVector double[] q);
-
-/** \} */  // end of group
-  // namespace cudf
-
-
-// Parsed from cudf/reduction.hpp
-
-/*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// #pragma once
-
-// #include <cudf/aggregation.hpp>
-// #include <cudf/scalar/scalar.hpp>
-/**
- * \addtogroup aggregation_reduction
- * \{
- * \file
- */
-
-/**
- *  \brief Enum to describe scan operation type
- */
-@Namespace("cudf") public enum scan_type { INCLUSIVE(0 != 0), EXCLUSIVE(1 != 0);
-
-    public final boolean value;
-    private scan_type(boolean v) { this.value = v; }
-    private scan_type(scan_type e) { this.value = e.value; }
-    public scan_type intern() { for (scan_type e : values()) if (e.value == value) return e; return this; }
-    @Override public String toString() { return intern().name(); }
-}
-
-/**
- * \brief  Computes the reduction of the values in all rows of a column.
- *
- * This function does not detect overflows in reductions.
- * Using a higher precision {@code data_type} may prevent overflow.
- * Only {@code min} and {@code max} ops are supported for reduction of non-arithmetic
- * types (timestamp, string...).
- * The null values are skipped for the operation.
- * If the column is empty, the member {@code is_valid()} of the output scalar
- * will contain {@code false}.
- *
- * @throws cudf::logic_error if reduction is called for non-arithmetic output
- * type and operator other than {@code min} and {@code max}.
- * @throws cudf::logic_error if input column data type is not convertible to
- * output data type.
- * @throws cudf::logic_error if {@code min} or {@code max} reduction is called and the
- * output type does not match the input column data type.
- *
- * If the input column has arithmetic type, output_dtype can be any arithmetic
- * type. For {@code mean}, {@code var} and {@code std} ops, a floating point output type must be
- * specified. If the input column has non-arithmetic type
- *   eg.(timestamp, string...), the same type must be specified.
- *
- * If the reduction fails, the member is_valid of the output scalar
- * will contain {@code false}.
- *
- * @param col Input column view
- * @param agg Aggregation operator applied by the reduction
- * @param output_dtype  The computation and output precision.
- * @param mr Device memory resource used to allocate the returned scalar's device memory
- * @return Output scalar with reduce result.
- */
-@Namespace("cudf") public static native @UniquePtr scalar reduce(
-  @Const @ByRef column_view col,
-  @UniquePtr aggregation agg,
-  @ByVal data_type output_dtype,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr scalar reduce(
-  @Const @ByRef column_view col,
-  @UniquePtr aggregation agg,
-  @ByVal data_type output_dtype);
-
-/**
- * \brief  Computes the scan of a column.
- *
- * The null values are skipped for the operation, and if an input element
- * at {@code i} is null, then the output element at {@code i} will also be null.
- *
- * @throws cudf::logic_error if column datatype is not numeric type.
- *
- * @param input [in] The input column view for the scan
- * @param agg [in] unique_ptr to aggregation operator applied by the scan
- * @param inclusive [in] The flag for applying an inclusive scan if
- *            scan_type::INCLUSIVE, an exclusive scan if scan_type::EXCLUSIVE.
- * @param null_handling [in] Exclude null values when computing the result if
- * null_policy::EXCLUDE. Include nulls if null_policy::INCLUDE.
- * Any operation with a null results in a null.
- * @param mr [in] Device memory resource used to allocate the returned scalar's device memory
- * @return unique pointer to new output column
- */
-@Namespace("cudf") public static native @UniquePtr column scan(
-  @Const @ByRef column_view input,
-  @UniquePtr aggregation agg,
-  scan_type inclusive,
-  @ByVal(nullValue = "null_policy::EXCLUDE") null_policy null_handling,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column scan(
-  @Const @ByRef column_view input,
-  @UniquePtr aggregation agg,
-  scan_type inclusive);
-@Namespace("cudf") public static native @UniquePtr column scan(
-  @Const @ByRef column_view input,
-  @UniquePtr aggregation agg,
-  @Cast("cudf::scan_type") boolean inclusive,
-  @ByVal(nullValue = "null_policy::EXCLUDE") null_policy null_handling,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column scan(
-  @Const @ByRef column_view input,
-  @UniquePtr aggregation agg,
-  @Cast("cudf::scan_type") boolean inclusive);
-
-/**
- * \brief Determines the minimum and maximum values of a column.
- *
- *
- * @param col column to compute minmax
- * @param mr Device memory resource used to allocate the returned column's device memory
- * @return A std::pair of scalars with the first scalar being the minimum value
- *         and the second scalar being the maximum value of the input column.
- */
-@Namespace("cudf") public static native @ByVal std::pair<std::unique_ptr<scalar>,std::unique_ptr<scalar> > minmax(
-  @Const @ByRef column_view col,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal std::pair<std::unique_ptr<scalar>,std::unique_ptr<scalar> > minmax(
-  @Const @ByRef column_view col);
-
-/** \} */  // end of group
-
-  // namespace cudf
-
-
-// Parsed from cudf/replace.hpp
-
-/*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// #pragma once
-
-// #include <cudf/types.hpp>
-// #include <memory>
-/**
- * \addtogroup transformation_replace
- * \{
- * \file
- */
-
-/**
- * \brief Replaces all null values in a column with corresponding values of another column
- *
- * If {@code input[i]} is NULL, then {@code output[i]} will contain {@code replacement[i]}.
- * {@code input} and {@code replacement} must be of the same type and size.
- *
- * @param input [in] A column whose null values will be replaced
- * @param replacement [in] A cudf::column whose values will replace null values in input
- * @param mr [in] Device memory resource used to allocate device memory of the returned column.
- *
- * @return A copy of {@code input} with the null values replaced with corresponding values from
- * {@code replacement}.
- */
-@Namespace("cudf") public static native @UniquePtr column replace_nulls(
-  @Const @ByRef column_view input,
-  @Const @ByRef column_view replacement,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column replace_nulls(
-  @Const @ByRef column_view input,
-  @Const @ByRef column_view replacement);
-
-/**
- * \brief Replaces all null values in a column with a scalar.
- *
- * If {@code input[i]} is NULL, then {@code output[i]} will contain {@code replacement}.
- * {@code input} and {@code replacement} must have the same type.
- *
- * @param input [in] A column whose null values will be replaced
- * @param replacement [in] Scalar used to replace null values in {@code input}.
- * @param mr [in] Device memory resource used to allocate device memory of the returned column.
- *
- * @return Copy of {@code input} with null values replaced by {@code replacement}.
- */
-@Namespace("cudf") public static native @UniquePtr column replace_nulls(
-  @Const @ByRef column_view input,
-  @Const @ByRef scalar replacement,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column replace_nulls(
-  @Const @ByRef column_view input,
-  @Const @ByRef scalar replacement);
-
-/**
- * \brief Replaces all NaN values in a column with corresponding values from another column
- *
- * If {@code input[i]} is NaN, then {@code output[i]} will contain {@code replacement[i]}.
- * <pre>{@code {.pseudo}
- * input        = {1.0, NaN, 4.0}
- * replacement  = {3.0, 9.0, 7.0}
- * output       = {1.0, 9.0, 4.0}
- * }</pre>
- *
- * \note Nulls are not considered as NaN
- *
- * @throws cudf::logic_error If {@code input} and {@code replacement} are of different type or size.
- * @throws cudf::logic_error If {@code input} or {@code replacement} are not of floating-point dtype.
- *
- * @param input A column whose NaN values will be replaced
- * @param replacement A cudf::column whose values will replace NaN values in input
- * @param mr Device memory resource used to allocate the returned column's device memory
- * @return A copy of {@code input} with the NaN values replaced with corresponding values from
- * {@code replacement}.
- */
-@Namespace("cudf") public static native @UniquePtr column replace_nans(
-  @Const @ByRef column_view input,
-  @Const @ByRef column_view replacement,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column replace_nans(
-  @Const @ByRef column_view input,
-  @Const @ByRef column_view replacement);
-
-/**
- * \brief Replaces all NaN values in a column with a scalar
- *
- * If {@code input[i]} is NaN, then {@code output[i]} will contain {@code replacement}.
- * <pre>{@code {.pseudo}
- * input        = {1.0, NaN, 4.0}
- * replacement  = 7.0
- * output       = {1.0, 7.0, 4.0}
- * }</pre>
- *
- * \note Nulls are not considered as NaN
- *
- * @throws cudf::logic_error If {@code input} and {@code replacement} are of different type.
- * @throws cudf::logic_error If {@code input} or {@code replacement} are not of floating-point dtype.
- *
- * @param input A column whose NaN values will be replaced
- * @param replacement A cudf::scalar whose value will replace NaN values in input
- * @param mr Device memory resource used to allocate the returned column's device memory
- * @return A copy of {@code input} with the NaN values replaced by {@code replacement}.
- */
-@Namespace("cudf") public static native @UniquePtr column replace_nans(
-  @Const @ByRef column_view input,
-  @Const @ByRef scalar replacement,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column replace_nans(
-  @Const @ByRef column_view input,
-  @Const @ByRef scalar replacement);
-
-/**
- * \brief Return a copy of {@code input_col} replacing any {@code values_to_replace[i]}
- * found with {@code replacement_values[i]}.
- *
- * @param input_col The column to find and replace values in.
- * @param values_to_replace The values to replace
- * @param replacement_values The values to replace with
- * @param mr Device memory resource used to allocate the returned column's device memory.
- *
- * @return Copy of {@code input_col} with specified values replaced.
- */
-@Namespace("cudf") public static native @UniquePtr column find_and_replace_all(
-  @Const @ByRef column_view input_col,
-  @Const @ByRef column_view values_to_replace,
-  @Const @ByRef column_view replacement_values,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column find_and_replace_all(
-  @Const @ByRef column_view input_col,
-  @Const @ByRef column_view values_to_replace,
-  @Const @ByRef column_view replacement_values);
-
-/**
- * \brief Replaces values less than {@code lo} in {@code input} with {@code lo_replace},
- * and values greater than {@code hi} with {@code hi_replace}.
- *
- * if {@code lo} is invalid, then lo will not be considered while
- * evaluating the input (Essentially considered minimum value of that type).
- * if {@code hi} is invalid, then hi will not be considered while
- * evaluating the input (Essentially considered maximum value of that type).
- *
- * \note: If {@code lo} is valid then {@code lo_replace} should be valid
- *        If {@code hi} is valid then {@code hi_replace} should be valid
- *
- * <pre>{@code
- * Example:
- *    input: {1, 2, 3, NULL, 5, 6, 7}
- *
- *    valid lo and hi
- *    lo: 3, hi: 5, lo_replace : 0, hi_replace : 16
- *    output:{0, 0, 3, NULL, 5, 16, 16}
- *
- *    invalid lo
- *    lo: NULL, hi: 5, lo_replace : 0, hi_replace : 16
- *    output:{1, 2, 3, NULL, 5, 16, 16}
- *
- *    invalid hi
- *    lo: 3, hi: NULL, lo_replace : 0, hi_replace : 16
- *    output:{0, 0, 3, NULL, 5, 6, 7}
- * }</pre>
- *
- * @throws cudf::logic_error if {@code lo.type() != hi.type()}
- * @throws cudf::logic_error if {@code lo_replace.type() != hi_replace.type()}
- * @throws cudf::logic_error if {@code lo.type() != lo_replace.type()}
- * @throws cudf::logic_error if {@code lo.type() != input.type()}
- *
- * @param input [in] Column whose elements will be clamped
- * @param lo [in] Minimum clamp value. All elements less than {@code lo} will be replaced by {@code lo_replace}.
- * Ignored if null.
- * @param lo_replace [in] All elements less than {@code lo} will be replaced by {@code lo_replace}.
- * @param hi [in] Maximum clamp value. All elements greater than {@code hi} will be replaced by
- * {@code hi_replace}. Ignored if null.
- * @param hi_replace [in] All elements greater than {@code hi} will be replaced by {@code hi_replace}.
- * @param mr [in] Device memory resource used to allocate device memory of the returned column.
- *
- * @return Returns a clamped column as per {@code lo} and {@code hi} boundaries
- */
-@Namespace("cudf") public static native @UniquePtr column clamp(
-  @Const @ByRef column_view input,
-  @Const @ByRef scalar lo,
-  @Const @ByRef scalar lo_replace,
-  @Const @ByRef scalar hi,
-  @Const @ByRef scalar hi_replace,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column clamp(
-  @Const @ByRef column_view input,
-  @Const @ByRef scalar lo,
-  @Const @ByRef scalar lo_replace,
-  @Const @ByRef scalar hi,
-  @Const @ByRef scalar hi_replace);
-
-/**
- * \brief Replaces values less than {@code lo} in {@code input} with {@code lo},
- * and values greater than {@code hi} with {@code hi}.
- *
- * if {@code lo} is invalid, then lo will not be considered while
- * evaluating the input (Essentially considered minimum value of that type).
- * if {@code hi} is invalid, then hi will not be considered while
- * evaluating the input (Essentially considered maximum value of that type).
- *
- * <pre>{@code
- * Example:
- *    input: {1, 2, 3, NULL, 5, 6, 7}
- *
- *    valid lo and hi
- *    lo: 3, hi: 5
- *    output:{3, 3, 3, NULL, 5, 5, 5}
- *
- *    invalid lo
- *    lo: NULL, hi:5
- *    output:{1, 2, 3, NULL, 5, 5, 5}
- *
- *    invalid hi
- *    lo: 3, hi:NULL
- *    output:{3, 3, 3, NULL, 5, 6, 7}
- * }</pre>
- *
- * @throws cudf::logic_error if {@code lo.type() != hi.type()}
- * @throws cudf::logic_error if {@code lo.type() != input.type()}
- *
- * @param input [in] Column whose elements will be clamped
- * @param lo [in] Minimum clamp value. All elements less than {@code lo} will be replaced by {@code lo}. Ignored
- * if null.
- * @param hi [in] Maximum clamp value. All elements greater than {@code hi} will be replaced by {@code hi}.
- * Ignored if null.
- * @param mr [in] Device memory resource used to allocate device memory of the returned column.
- *
- * @return Returns a clamped column as per {@code lo} and {@code hi} boundaries
- */
-@Namespace("cudf") public static native @UniquePtr column clamp(
-  @Const @ByRef column_view input,
-  @Const @ByRef scalar lo,
-  @Const @ByRef scalar hi,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column clamp(
-  @Const @ByRef column_view input,
-  @Const @ByRef scalar lo,
-  @Const @ByRef scalar hi);
-
-/**
- * \brief Copies from a column of floating-point elements and replaces {@code -NaN} and {@code -0.0} with {@code +NaN}
- * and {@code +0.0}, respectively.
- *
- * Converts floating point values from \p input using the following rules:
- *        Convert  -NaN  -> NaN
- *        Convert  -0.0  -> 0.0
- *
- * @throws cudf::logic_error if column does not have floating point data type.
- * @param Column [in] of floating-point elements to copy and normalize
- * @param device_memory_resource [in] allocator for allocating output data
- *
- * @return new column with the modified data
- */
-@Namespace("cudf") public static native @UniquePtr column normalize_nans_and_zeros(
-  @Const @ByRef column_view input,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column normalize_nans_and_zeros(
-  @Const @ByRef column_view input);
-
-/**
- * \brief Modifies a column of floating-point elements to replace all {@code -NaN} and {@code -0.0} with {@code +NaN}
- * and {@code +0.0}, respectively.
- *
- * Converts floating point values from \p in_out using the following rules:
- *        Convert  -NaN  -> NaN
- *        Convert  -0.0  -> 0.0
- *
- * @throws cudf::logic_error if column does not have floating point data type.
- * @param Column [in, out] of floating-point elements to normalize
- */
-@Namespace("cudf") public static native void normalize_nans_and_zeros(@ByRef mutable_column_view in_out);
-
-/** \} */  // end of group
-  // namespace cudf
-
-
-// Parsed from cudf/reshape.hpp
-
-/*
- * Copyright (c) 2020, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// #pragma once
-
-// #include <cudf/column/column.hpp>
-// #include <cudf/table/table_view.hpp>
-// #include <cudf/types.hpp>
-// #include <memory>
-/**
- * \addtogroup column_reshape
- * \{
- * \file
- * \brief Column APIs for interleave and tile
- */
-
-/**
- * \brief Interleave columns of a table into a single column.
- *
- * Converts the column major table {@code input} into a row major column.
- * Example:
- * <pre>{@code
- * in     = [[A1, A2, A3], [B1, B2, B3]]
- * return = [A1, B1, A2, B2, A3, B3]
- * }</pre>
- *
- * @throws cudf::logic_error if input contains no columns.
- * @throws cudf::logic_error if input columns dtypes are not identical.
- *
- * @param input [in] Table containing columns to interleave.
- *
- * @return The interleaved columns as a single column
- */
-@Namespace("cudf") public static native @UniquePtr column interleave_columns(
-  @Const @ByRef table_view input,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column interleave_columns(
-  @Const @ByRef table_view input);
-
-/**
- * \brief Repeats the rows from {@code input} table {@code count} times to form a new table.
- *
- * {@code output.num_columns() == input.num_columns()}
- * {@code output.num_rows() == input.num_rows() * count}
- *
- * <pre>{@code
- * input  = [[8, 4, 7], [5, 2, 3]]
- * count  = 2
- * return = [[8, 4, 7, 8, 4, 7], [5, 2, 3, 5, 2, 3]]
- * }</pre>
- *
- * @param input [in] Table containing rows to be repeated.
- * @param count [in] Number of times to tile "rows". Must be non-negative.
- *
- * @return The table containing the tiled "rows".
- */
-@Namespace("cudf") public static native @UniquePtr table tile(
-  @Const @ByRef table_view input,
-  @ByVal size_type count,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table tile(
-  @Const @ByRef table_view input,
-  @ByVal size_type count);
-
-/**
- * \brief Configures whether byte casting flips endianness
- */
-@Namespace("cudf") public enum flip_endianness { NO(0 != 0), YES(1 != 0);
-
-    public final boolean value;
-    private flip_endianness(boolean v) { this.value = v; }
-    private flip_endianness(flip_endianness e) { this.value = e.value; }
-    public flip_endianness intern() { for (flip_endianness e : values()) if (e.value == value) return e; return this; }
-    @Override public String toString() { return intern().name(); }
-}
-
-/**
- * \brief Converts a column's elements to lists of bytes
- *
- * <pre>{@code
- * input<int32>  = [8675, 309]
- * configuration = flip_endianness::YES
- * return        = [[0x00, 0x00, 0x21, 0xe3], [0x00, 0x00, 0x01, 0x35]]
- * }</pre>
- *
- * @param input_column Column to be converted to lists of bytes.
- * @param endian_configuration Whether to retain or flip the endianness of the elements.
- * @param mr Device memory resource used to allocate the returned column's device memory.
- *
- * @return The column containing the lists of bytes.
- */
-@Namespace("cudf") public static native @UniquePtr column byte_cast(
-  @Const @ByRef column_view input_column,
-  flip_endianness endian_configuration,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column byte_cast(
-  @Const @ByRef column_view input_column,
-  flip_endianness endian_configuration);
-@Namespace("cudf") public static native @UniquePtr column byte_cast(
-  @Const @ByRef column_view input_column,
-  @Cast("cudf::flip_endianness") boolean endian_configuration,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column byte_cast(
-  @Const @ByRef column_view input_column,
-  @Cast("cudf::flip_endianness") boolean endian_configuration);
-
-/** \} */  // end of group
-
-  // namespace cudf
-
-
-// Parsed from cudf/rolling.hpp
-
-/*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// #pragma once
-
-// #include <cudf/types.hpp>
-
-// #include <memory>
-/**
- * \addtogroup aggregation_rolling
- * \{
- * \file
- */
-
-/**
- * \brief  Applies a fixed-size rolling window function to the values in a column.
- *
- * This function aggregates values in a window around each element i of the input column, and
- * invalidates the bit mask for element i if there are not enough observations. The window size is
- * static (the same for each element). This matches Pandas' API for DataFrame.rolling with a few
- * notable differences:
- * - instead of the center flag it uses a two-part window to allow for more flexible windows.
- *   The total window size = {@code preceding_window + following_window}. Element {@code i} uses elements
- *   {@code [i-preceding_window+1, i+following_window]} to do the window computation.
- * - instead of storing NA/NaN for output rows that do not meet the minimum number of observations
- *   this function updates the valid bitmask of the column to indicate which elements are valid.
- *
- * The returned column for count aggregation always has {@code INT32} type. All other operators return a
- * column of the same type as the input. Therefore it is suggested to convert integer column types
- * (especially low-precision integers) to {@code FLOAT32} or {@code FLOAT64} before doing a rolling {@code MEAN}.
- *
- * @param input_col [in] The input column
- * @param preceding_window [in] The static rolling window size in the backward direction.
- * @param following_window [in] The static rolling window size in the forward direction.
- * @param min_periods [in] Minimum number of observations in window required to have a value,
- *                        otherwise element {@code i} is null.
- * @param agg [in] The rolling window aggregation type (SUM, MAX, MIN, etc.)
- *
- * @return   A nullable output column containing the rolling window results
- **/
-@Namespace("cudf") public static native @UniquePtr column rolling_window(
-  @Const @ByRef column_view input,
-  @ByVal size_type preceding_window,
-  @ByVal size_type following_window,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation agg,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column rolling_window(
-  @Const @ByRef column_view input,
-  @ByVal size_type preceding_window,
-  @ByVal size_type following_window,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation agg);
-
-/**
- * \copydoc std::unique_ptr<column> rolling_window(
- *            column_view const& input,
- *            size_type preceding_window,
- *            size_type following_window,
- *            size_type min_periods,
- *            std::unique_ptr<aggregation> const& agg,
- *            rmm::mr::device_memory_resource* mr)
- *
- * @param default_outputs A column of per-row default values to be returned instead
- *                        of nulls. Used for LEAD()/LAG(), if the row offset crosses
- *                        the boundaries of the column.
- */
-@Namespace("cudf") public static native @UniquePtr column rolling_window(
-  @Const @ByRef column_view input,
-  @Const @ByRef column_view default_outputs,
-  @ByVal size_type preceding_window,
-  @ByVal size_type following_window,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation agg,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column rolling_window(
-  @Const @ByRef column_view input,
-  @Const @ByRef column_view default_outputs,
-  @ByVal size_type preceding_window,
-  @ByVal size_type following_window,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation agg);
-// Targeting ../window_bounds.java
-
-
-/**
- * \brief  Applies a grouping-aware, fixed-size rolling window function to the values in a column.
- *
- * Like {@code rolling_window()}, this function aggregates values in a window around each
- * element of a specified {@code input} column. It differs from {@code rolling_window()} in that elements of the
- * {@code input} column are grouped into distinct groups (e.g. the result of a groupby). The window
- * aggregation cannot cross the group boundaries. For a row {@code i} of {@code input}, the group is determined
- * from the corresponding (i.e. i-th) values of the columns under {@code group_keys}.
- *
- * Note: This method requires that the rows are presorted by the {@code group_key} values.
- *
- * <pre>{@code {.pseudo}
- * Example: Consider a user-sales dataset, where the rows look as follows:
- * { "user_id", sales_amt, day }
- *
- * The `grouped_rolling_window()` method enables windowing queries such as grouping a dataset by
- * `user_id`, and summing up the `sales_amt` column over a window of 3 rows (2 preceding (including
- * current row), 1 row following).
- *
- * In this example,
- *    1. `group_keys == [ user_id ]`
- *    2. `input == sales_amt`
- * The data are grouped by `user_id`, and ordered by `day`-string. The aggregation
- * (SUM) is then calculated for a window of 3 values around (and including) each row.
- *
- * For the following input:
- *
- *  [ // user,  sales_amt
- *    { "user1",   10      },
- *    { "user2",   20      },
- *    { "user1",   20      },
- *    { "user1",   10      },
- *    { "user2",   30      },
- *    { "user2",   80      },
- *    { "user1",   50      },
- *    { "user1",   60      },
- *    { "user2",   40      }
- *  ]
- *
- * Partitioning (grouping) by `user_id` yields the following `sales_amt` vector
- * (with 2 groups, one for each distinct `user_id`):
- *
- *    [ 10,  20,  10,  50,  60,  20,  30,  80,  40 ]
- *      <-------user1-------->|<------user2------->
- *
- * The SUM aggregation is applied with 1 preceding and 1 following
- * row, with a minimum of 1 period. The aggregation window is thus 3 rows wide,
- * yielding the following column:
- *
- *    [ 30, 40,  80, 120, 110,  50, 130, 150, 120 ]
- *
- * Note: The SUMs calculated at the group boundaries (i.e. indices 0, 4, 5, and 8)
- * consider only 2 values each, in spite of the window-size being 3.
- * Each aggregation operation cannot cross group boundaries.
- * }</pre>
- *
- * The returned column for {@code op == COUNT} always has {@code INT32} type. All other operators return a
- * column of the same type as the input. Therefore it is suggested to convert integer column types
- * (especially low-precision integers) to {@code FLOAT32} or {@code FLOAT64} before doing a rolling {@code MEAN}.
- *
- * @param group_keys [in] The (pre-sorted) grouping columns
- * @param input [in] The input column (to be aggregated)
- * @param preceding_window [in] The static rolling window size in the backward direction.
- * @param following_window [in] The static rolling window size in the forward direction.
- * @param min_periods [in] Minimum number of observations in window required to have a value,
- *                        otherwise element {@code i} is null.
- * @param aggr [in] The rolling window aggregation type (SUM, MAX, MIN, etc.)
- *
- * @return   A nullable output column containing the rolling window results
- **/
-@Namespace("cudf") public static native @UniquePtr column grouped_rolling_window(
-  @Const @ByRef table_view group_keys,
-  @Const @ByRef column_view input,
-  @ByVal size_type preceding_window,
-  @ByVal size_type following_window,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation aggr,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column grouped_rolling_window(
-  @Const @ByRef table_view group_keys,
-  @Const @ByRef column_view input,
-  @ByVal size_type preceding_window,
-  @ByVal size_type following_window,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation aggr);
-
-/**
- * \copydoc std::unique_ptr<column> grouped_rolling_window(
- *            table_view const& group_keys,
- *            column_view const& input,
- *            size_type preceding_window,
- *            size_type following_window,
- *            size_type min_periods,
- *            std::unique_ptr<aggregation> const& aggr,
- *            rmm::mr::device_memory_resource* mr)
- */
-@Namespace("cudf") public static native @UniquePtr column grouped_rolling_window(
-  @Const @ByRef table_view group_keys,
-  @Const @ByRef column_view input,
-  @ByVal window_bounds preceding_window,
-  @ByVal window_bounds following_window,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation aggr,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column grouped_rolling_window(
-  @Const @ByRef table_view group_keys,
-  @Const @ByRef column_view input,
-  @ByVal window_bounds preceding_window,
-  @ByVal window_bounds following_window,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation aggr);
-
-/**
- * \copydoc std::unique_ptr<column> grouped_rolling_window(
- *            table_view const& group_keys,
- *            column_view const& input,
- *            size_type preceding_window,
- *            size_type following_window,
- *            size_type min_periods,
- *            std::unique_ptr<aggregation> const& aggr,
- *            rmm::mr::device_memory_resource* mr)
- *
- * @param default_outputs A column of per-row default values to be returned instead
- *                        of nulls. Used for LEAD()/LAG(), if the row offset crosses
- *                        the boundaries of the column or group.
- */
-@Namespace("cudf") public static native @UniquePtr column grouped_rolling_window(
-  @Const @ByRef table_view group_keys,
-  @Const @ByRef column_view input,
-  @Const @ByRef column_view default_outputs,
-  @ByVal size_type preceding_window,
-  @ByVal size_type following_window,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation aggr,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column grouped_rolling_window(
-  @Const @ByRef table_view group_keys,
-  @Const @ByRef column_view input,
-  @Const @ByRef column_view default_outputs,
-  @ByVal size_type preceding_window,
-  @ByVal size_type following_window,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation aggr);
-
-/**
- * \copydoc std::unique_ptr<column> grouped_rolling_window(
- *            table_view const& group_keys,
- *            column_view const& input,
- *            column_view const& default_outputs,
- *            size_type preceding_window,
- *            size_type following_window,
- *            size_type min_periods,
- *            std::unique_ptr<aggregation> const& aggr,
- *            rmm::mr::device_memory_resource* mr)
- */
-@Namespace("cudf") public static native @UniquePtr column grouped_rolling_window(
-  @Const @ByRef table_view group_keys,
-  @Const @ByRef column_view input,
-  @Const @ByRef column_view default_outputs,
-  @ByVal window_bounds preceding_window,
-  @ByVal window_bounds following_window,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation aggr,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column grouped_rolling_window(
-  @Const @ByRef table_view group_keys,
-  @Const @ByRef column_view input,
-  @Const @ByRef column_view default_outputs,
-  @ByVal window_bounds preceding_window,
-  @ByVal window_bounds following_window,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation aggr);
-
-/**
- * \brief  Applies a grouping-aware, timestamp-based rolling window function to the values in a
- *column.
- *
- * Like {@code rolling_window()}, this function aggregates values in a window around each
- * element of a specified {@code input} column. It differs from {@code rolling_window()} in two respects:
- *   1. The elements of the {@code input} column are grouped into distinct groups (e.g. the result of a
- *      groupby), determined by the corresponding values of the columns under {@code group_keys}. The
- *      window-aggregation cannot cross the group boundaries.
- *   2. Within a group, the aggregation window is calculated based on a time interval (e.g. number
- *      of days preceding/following the current row). The timestamps for the input data are
- *      specified by the {@code timestamp_column} argument.
- *
- * Note: This method requires that the rows are presorted by the group keys and timestamp values.
- *
- * <pre>{@code {.pseudo}
- * Example: Consider a user-sales dataset, where the rows look as follows:
- *  { "user_id", sales_amt, date }
- *
- * This method enables windowing queries such as grouping a dataset by `user_id`, sorting by
- * increasing `date`, and summing up the `sales_amt` column over a window of 3 days (1 preceding
- *day, the current day, and 1 following day).
- *
- * In this example,
- *    1. `group_keys == [ user_id ]`
- *    2. `timestamp_column == date`
- *    3. `input == sales_amt`
- * The data are grouped by `user_id`, and ordered by `date`. The aggregation
- * (SUM) is then calculated for a window of 3 days around (and including) each row.
- *
- * For the following input:
- *
- *  [ // user,  sales_amt,  YYYYMMDD (date)
- *    { "user1",   10,      20200101    },
- *    { "user2",   20,      20200101    },
- *    { "user1",   20,      20200102    },
- *    { "user1",   10,      20200103    },
- *    { "user2",   30,      20200101    },
- *    { "user2",   80,      20200102    },
- *    { "user1",   50,      20200107    },
- *    { "user1",   60,      20200107    },
- *    { "user2",   40,      20200104    }
- *  ]
- *
- * Partitioning (grouping) by `user_id`, and ordering by `date` yields the following `sales_amt`
- * vector (with 2 groups, one for each distinct `user_id`):
- *
- * Date :(202001-)  [ 01,  02,  03,  07,  07,    01,   01,   02,  04 ]
- * Input:           [ 10,  20,  10,  50,  60,    20,   30,   80,  40 ]
- *                    <-------user1-------->|<---------user2--------->
- *
- * The SUM aggregation is applied, with 1 day preceding, and 1 day following, with a minimum of 1
- * period. The aggregation window is thus 3 *days* wide, yielding the following output column:
- *
- *  Results:        [ 30,  40,  30,  110, 110,  130,  130,  130,  40 ]
- *
- * }</pre>
- *
- * Note: The number of rows participating in each window might vary, based on the index within the
- * group, datestamp, and {@code min_periods}. Apropos:
- *  1. results[0] considers 2 values, because it is at the beginning of its group, and has no
- *     preceding values.
- *  2. results[5] considers 3 values, despite being at the beginning of its group. It must include 2
- *     following values, based on its datestamp.
- *
- * Each aggregation operation cannot cross group boundaries.
- *
- * The returned column for {@code op == COUNT} always has {@code INT32} type. All other operators return a
- * column of the same type as the input. Therefore it is suggested to convert integer column types
- * (especially low-precision integers) to {@code FLOAT32} or {@code FLOAT64} before doing a rolling {@code MEAN}.
- *
- * @param group_keys [in] The (pre-sorted) grouping columns
- * @param timestamp_column [in] The (pre-sorted) timestamps for each row
- * @param timestamp_order [in]  The order (ASCENDING/DESCENDING) in which the timestamps are sorted
- * @param input [in] The input column (to be aggregated)
- * @param preceding_window_in_days [in] The rolling window time-interval in the backward direction.
- * @param following_window_in_days [in] The rolling window time-interval in the forward direction.
- * @param min_periods [in] Minimum number of observations in window required to have a value,
- *                        otherwise element {@code i} is null.
- * @param aggr [in] The rolling window aggregation type (SUM, MAX, MIN, etc.)
- *
- * @return   A nullable output column containing the rolling window results
- */
-@Namespace("cudf") public static native @UniquePtr column grouped_time_range_rolling_window(
-  @Const @ByRef table_view group_keys,
-  @Const @ByRef column_view timestamp_column,
-  @Const @ByRef order timestamp_order,
-  @Const @ByRef column_view input,
-  @ByVal size_type preceding_window_in_days,
-  @ByVal size_type following_window_in_days,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation aggr,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column grouped_time_range_rolling_window(
-  @Const @ByRef table_view group_keys,
-  @Const @ByRef column_view timestamp_column,
-  @Const @ByRef order timestamp_order,
-  @Const @ByRef column_view input,
-  @ByVal size_type preceding_window_in_days,
-  @ByVal size_type following_window_in_days,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation aggr);
-
-/**
- * \copydoc  std::unique_ptr<column> grouped_time_range_rolling_window(
- *             table_view const& group_keys,
- *             column_view const& timestamp_column,
- *             cudf::order const& timestamp_order,
- *             column_view const& input,
- *             size_type preceding_window_in_days,
- *             size_type following_window_in_days,
- *             size_type min_periods,
- *             std::unique_ptr<aggregation> const& aggr,
- *             rmm::mr::device_memory_resource* mr)
- */
-@Namespace("cudf") public static native @UniquePtr column grouped_time_range_rolling_window(
-  @Const @ByRef table_view group_keys,
-  @Const @ByRef column_view timestamp_column,
-  @Const @ByRef order timestamp_order,
-  @Const @ByRef column_view input,
-  @ByVal window_bounds preceding_window_in_days,
-  @ByVal window_bounds following_window_in_days,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation aggr,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column grouped_time_range_rolling_window(
-  @Const @ByRef table_view group_keys,
-  @Const @ByRef column_view timestamp_column,
-  @Const @ByRef order timestamp_order,
-  @Const @ByRef column_view input,
-  @ByVal window_bounds preceding_window_in_days,
-  @ByVal window_bounds following_window_in_days,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation aggr);
-
-/**
- * \brief  Applies a variable-size rolling window function to the values in a column.
- *
- * This function aggregates values in a window around each element i of the input column, and
- * invalidates the bit mask for element i if there are not enough observations. The window size is
- * dynamic (varying for each element). This matches Pandas' API for DataFrame.rolling with a few
- * notable differences:
- * - instead of the center flag it uses a two-part window to allow for more flexible windows.
- *   The total window size = {@code preceding_window + following_window}. Element {@code i} uses elements
- *   {@code [i-preceding_window+1, i+following_window]} to do the window computation.
- * - instead of storing NA/NaN for output rows that do not meet the minimum number of observations
- *   this function updates the valid bitmask of the column to indicate which elements are valid.
- * - support for dynamic rolling windows, i.e. window size can be specified for each element using
- *   an additional array.
- *
- * The returned column for count aggregation always has INT32 type. All other operators return a
- * column of the same type as the input. Therefore it is suggested to convert integer column types
- * (especially low-precision integers) to {@code FLOAT32} or {@code FLOAT64} before doing a rolling {@code MEAN}.
- *
- * @throws cudf::logic_error if window column type is not INT32
- *
- * @param input_col [in] The input column
- * @param preceding_window [in] A non-nullable column of INT32 window sizes in the forward direction.
- *                             {@code preceding_window[i]} specifies preceding window size for
- *                             element {@code i}.
- * @param following_window [in] A non-nullable column of INT32 window sizes in the backward
- *                             direction. {@code following_window[i]} specifies following window size
- *                             for element {@code i}.
- * @param min_periods [in] Minimum number of observations in window required to have a value,
- *                        otherwise element {@code i} is null.
- * @param agg [in] The rolling window aggregation type (sum, max, min, etc.)
- *
- * @return   A nullable output column containing the rolling window results
- */
-@Namespace("cudf") public static native @UniquePtr column rolling_window(
-  @Const @ByRef column_view input,
-  @Const @ByRef column_view preceding_window,
-  @Const @ByRef column_view following_window,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation agg,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column rolling_window(
-  @Const @ByRef column_view input,
-  @Const @ByRef column_view preceding_window,
-  @Const @ByRef column_view following_window,
-  @ByVal size_type min_periods,
-  @UniquePtr aggregation agg);
-
-/** \} */  // end of group
-  // namespace cudf
-
-
-// Parsed from cudf/round.hpp
-
-/*
- * Copyright (c) 2020, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// #pragma once
-
-// #include <cudf/column/column.hpp>
-
-/**
- * \addtogroup transformation_unaryops
- * \{
- * \file
- * \brief Column APIs for round
- */
-
-/**
- * \brief Different rounding methods for {@code cudf::round}
- *
- * Info on HALF_UP   rounding: https://en.wikipedia.org/wiki/Rounding#Round_half_up
- * Info on HALF_EVEN rounding: https://en.wikipedia.org/wiki/Rounding#Round_half_to_even
- */
-@Namespace("cudf") public enum rounding_method { HALF_UP(0), HALF_EVEN(1);
-
-    public final int value;
-    private rounding_method(int v) { this.value = v; }
-    private rounding_method(rounding_method e) { this.value = e.value; }
-    public rounding_method intern() { for (rounding_method e : values()) if (e.value == value) return e; return this; }
-    @Override public String toString() { return intern().name(); }
-}
-
-/**
- * \brief Rounds all the values in a column to the specified number of decimal places.
- *
- * {@code cudf::round} currently supports HALF_UP and HALF_EVEN rounding for integer, floating point and
- * {@code decimal32} and {@code decimal64} numbers. For {@code decimal32} and {@code decimal64} numbers, negated
- * {@code numeric::scale} is equivalent to {@code decimal_places}.
- *
- * Example:
- * <pre>{@code
- * using namespace cudf;
- *
- * column_view a; // contains { 1.729, 17.29, 172.9, 1729 };
- *
- * auto result1 = round(a);     // { 2,   17,   173,   1729 }
- * auto result2 = round(a, 1);  // { 1.7, 17.3, 172.9, 1729 }
- * auto result3 = round(a, -1); // { 0,   20,   170,   1730 }
- *
- * column_view b; // contains { 1.5, 2.5, 1.35, 1.45, 15, 25 };
- *
- * auto result4 = round(b,  0, rounding_method::HALF_EVEN); // { 2,   2,   1,   1,   15, 25};
- * auto result5 = round(b,  1, rounding_method::HALF_EVEN); // { 1.5, 2.5, 1.4, 1.4, 15, 25};
- * auto result6 = round(b, -1, rounding_method::HALF_EVEN); // { 0,   0,   0,   0,   20, 20};
- * }</pre>
- *
- * @param input          Column of values to be rounded
- * @param decimal_places Number of decimal places to round to (default 0). If negative, this
- * specifies the number of positions to the left of the decimal point.
- * @param method         Rounding method
- * @param mr             Device memory resource used to allocate the returned column's device memory
- *
- * @return std::unique_ptr<column> Column with each of the values rounded
- */
-@Namespace("cudf") public static native @UniquePtr column round(
-  @Const @ByRef column_view input,
-  int decimal_places/*=0*/,
-  rounding_method method/*=cudf::rounding_method::HALF_UP*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column round(
-  @Const @ByRef column_view input);
-@Namespace("cudf") public static native @UniquePtr column round(
-  @Const @ByRef column_view input,
-  int decimal_places/*=0*/,
-  @Cast("cudf::rounding_method") int method/*=cudf::rounding_method::HALF_UP*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-
-/** \} */  // end of group
-  // namespace cudf
-
-
-// Parsed from cudf/search.hpp
-
-/*
- * Copyright (c) 2019, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// #pragma once
-
-// #include <cudf/column/column.hpp>
-// #include <cudf/scalar/scalar.hpp>
-// #include <cudf/table/table.hpp>
-// #include <cudf/types.hpp>
-
-// #include <vector>
-/**
- * \addtogroup column_search
- * \{
- * \file
- * \brief Column APIs for lower_bound, upper_bound, and contains
- */
-
-/**
- * \brief Find smallest indices in a sorted table where values should be
- *  inserted to maintain order
- *
- * For each row v in \p values, find the first index in \p t where
- *  inserting the row will maintain the sort order of \p t
- *
- * <pre>{@code {.pseudo}
- * Example:
- *
- *  Single column:
- *      idx      0   1   2   3   4
- *   column = { 10, 20, 20, 30, 50 }
- *   values = { 20 }
- *   result = {  1 }
- *
- *  Multi Column:
- *      idx        0    1    2    3    4
- *   t      = {{  10,  20,  20,  20,  20 },
- *             { 5.0,  .5,  .5,  .7,  .7 },
- *             {  90,  77,  78,  61,  61 }}
- *   values = {{ 20 },
- *             { .7 },
- *             { 61 }}
- *   result =  {  3 }
- * }</pre>
- *
- * @param t               Table to search
- * @param values          Find insert locations for these values
- * @param column_order    Vector of column sort order
- * @param null_precedence Vector of null_precedence enums values
- * @param mr              Device memory resource used to allocate the returned column's device
- * memory
- * @return A non-nullable column of cudf::size_type elements containing the insertion points.
- */
-@Namespace("cudf") public static native @UniquePtr column lower_bound(
-  @Const @ByRef table_view t,
-  @Const @ByRef table_view values,
-  @StdVector order column_order,
-  @StdVector null_order null_precedence,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column lower_bound(
-  @Const @ByRef table_view t,
-  @Const @ByRef table_view values,
-  @StdVector order column_order,
-  @StdVector null_order null_precedence);
-
-/**
- * \brief Find largest indices in a sorted table where values should be
- *  inserted to maintain order
- *
- * For each row v in \p values, find the last index in \p t where
- *  inserting the row will maintain the sort order of \p t
- *
- * <pre>{@code {.pseudo}
- * Example:
- *
- *  Single Column:
- *      idx      0   1   2   3   4
- *   column = { 10, 20, 20, 30, 50 }
- *   values = { 20 }
- *   result = {  3 }
- *
- *  Multi Column:
- *      idx        0    1    2    3    4
- *   t      = {{  10,  20,  20,  20,  20 },
- *             { 5.0,  .5,  .5,  .7,  .7 },
- *             {  90,  77,  78,  61,  61 }}
- *   values = {{ 20 },
- *             { .7 },
- *             { 61 }}
- *   result =  {  5 }
- * }</pre>
- *
- * @param column          Table to search
- * @param values          Find insert locations for these values
- * @param column_order    Vector of column sort order
- * @param null_precedence Vector of null_precedence enums values
- * @param mr              Device memory resource used to allocate the returned column's device
- * memory
- * @return A non-nullable column of cudf::size_type elements containing the insertion points.
- */
-@Namespace("cudf") public static native @UniquePtr column upper_bound(
-  @Const @ByRef table_view t,
-  @Const @ByRef table_view values,
-  @StdVector order column_order,
-  @StdVector null_order null_precedence,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column upper_bound(
-  @Const @ByRef table_view t,
-  @Const @ByRef table_view values,
-  @StdVector order column_order,
-  @StdVector null_order null_precedence);
-
-/**
- * \brief Find if the {@code value} is present in the {@code col}
- *
- * @throws cudf::logic_error
- * If {@code col.type() != values.type()}
- *
- * <pre>{@code {.pseudo}
- *  Single Column:
- *      idx      0   1   2   3   4
- *      col = { 10, 20, 20, 30, 50 }
- *  Scalar:
- *   value = { 20 }
- *   result = true
- * }</pre>
- *
- * @param col      A column object
- * @param value    A scalar value to search for in {@code col}
- *
- * @return bool    If {@code value} is found in {@code column} true, else false.
- */
-@Namespace("cudf") public static native @Cast("bool") boolean contains(@Const @ByRef column_view col, @Const @ByRef scalar value);
-
-/**
- * \brief  Returns a new column of type bool identifying for each element of \p haystack column,
- *         if that element is contained in \p needles column.
- *
- * The new column will have the same dimension and null status as the \p haystack column.  That is,
- * any element that is invalid in the \p haystack column will be invalid in the returned column.
- *
- * @throws cudf::logic_error
- * If {@code haystack.type() != needles.type()}
- *
- * <pre>{@code {.pseudo}
- *   haystack = { 10, 20, 30, 40, 50 }
- *   needles  = { 20, 40, 60, 80 }
- *
- *   result = { false, true, false, true, false }
- * }</pre>
- *
- * @param haystack  A column object
- * @param needles   A column of values to search for in {@code col}
- * @param mr        Device memory resource used to allocate the returned column's device memory
- *
- * @return A column of bool elements containing true if the corresponding entry in haystack
- * appears in needles and false if it does not.
- */
-@Namespace("cudf") public static native @UniquePtr column contains(
-  @Const @ByRef column_view haystack,
-  @Const @ByRef column_view needles,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column contains(
-  @Const @ByRef column_view haystack,
-  @Const @ByRef column_view needles);
-
-/** \} */  // end of group
-  // namespace cudf
-
-
-// Parsed from cudf/sorting.hpp
-
-/*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// #pragma once
-
-// #include <cudf/types.hpp>
-
-// #include <memory>
-// #include <vector>
-
-/**
- * \brief Tie-breaker method to use for ranking the column.
- *
- * \ingroup column_sort
- */
-@Namespace("cudf") public enum rank_method {
-  /** stable sort order ranking (no ties) */
-  FIRST(0),
-  /** mean of first in the group */
-  AVERAGE(1),
-  /** min of first in the group */
-  MIN(2),
-  /** max of first in the group */
-  MAX(3),
-  /** rank always increases by 1 between groups */
-  DENSE(4);
-
-    public final int value;
-    private rank_method(int v) { this.value = v; }
-    private rank_method(rank_method e) { this.value = e.value; }
-    public rank_method intern() { for (rank_method e : values()) if (e.value == value) return e; return this; }
-    @Override public String toString() { return intern().name(); }
-}
-
-/**
- * \addtogroup column_sort
- * \{
- * \file
- * \brief Column APIs for sort and rank
- */
-
-/**
- * \brief Computes the row indices that would produce {@code input} in a lexicographical sorted order.
- *
- * @param input The table to sort
- * @param column_order The desired sort order for each column. Size must be
- * equal to {@code input.num_columns()} or empty. If empty, all columns will be sorted
- * in ascending order.
- * @param null_precedence The desired order of null compared to other elements
- * for each column.  Size must be equal to {@code input.num_columns()} or empty.
- * If empty, all columns will be sorted in {@code null_order::BEFORE}.
- * @param mr Device memory resource used to allocate the returned column's device memory
- * @return A non-nullable column of {@code size_type} elements containing the permuted row indices of
- * {@code input} if it were sorted
- */
-@Namespace("cudf") public static native @UniquePtr column sorted_order(
-  @ByVal table_view input,
-  @StdVector order column_order/*={}*/,
-  @StdVector null_order null_precedence/*={}*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column sorted_order(
-  @ByVal table_view input);
-
-/**
- * \brief Computes the row indices that would produce {@code input} in a stable
- * lexicographical sorted order.
- *
- * The order of equivalent elements is guaranteed to be preserved.
- *
- * \copydoc cudf::sorted_order
- */
-@Namespace("cudf") public static native @UniquePtr column stable_sorted_order(
-  @ByVal table_view input,
-  @StdVector order column_order/*={}*/,
-  @StdVector null_order null_precedence/*={}*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column stable_sorted_order(
-  @ByVal table_view input);
-
-/**
- * \brief Checks whether the rows of a {@code table} are sorted in a lexicographical
- *        order.
- *
- * @param in [in]                table whose rows need to be compared for ordering
- * @param column_order [in]      The expected sort order for each column. Size
- *                              must be equal to {@code in.num_columns()} or empty. If
- *                              empty, it is expected all columns are in
- *                              ascending order.
- * @param null_precedence [in]   The desired order of null compared to other
- *                              elements for each column. Size must be equal to
- *                              {@code input.num_columns()} or empty. If empty,
- *                              {@code null_order::BEFORE} is assumed for all columns.
- *
- * @return bool                true if sorted as expected, false if not.
- */
-@Namespace("cudf") public static native @Cast("bool") boolean is_sorted(@Const @ByRef table_view table,
-               @StdVector order column_order,
-               @StdVector null_order null_precedence);
-
-/**
- * \brief Performs a lexicographic sort of the rows of a table
- *
- * @param input The table to sort
- * @param column_order The desired order for each column. Size must be
- * equal to {@code input.num_columns()} or empty. If empty, all columns are sorted in
- * ascending order.
- * @param null_precedence The desired order of a null element compared to other
- * elements for each column in {@code input}. Size must be equal to
- * {@code input.num_columns()} or empty. If empty, all columns will be sorted with
- * {@code null_order::BEFORE}.
- * @param mr Device memory resource used to allocate the returned table's device memory
- * @return New table containing the desired sorted order of {@code input}
- */
-@Namespace("cudf") public static native @UniquePtr table sort(
-  @ByVal table_view input,
-  @StdVector order column_order/*={}*/,
-  @StdVector null_order null_precedence/*={}*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table sort(
-  @ByVal table_view input);
-
-/**
- * \brief Performs a key-value sort.
- *
- * Creates a new table that reorders the rows of {@code values} according to the
- * lexicographic ordering of the rows of {@code keys}.
- *
- * @throws cudf::logic_error if {@code values.num_rows() != keys.num_rows()}.
- *
- * @param values The table to reorder
- * @param keys The table that determines the ordering
- * @param column_order The desired order for each column in {@code keys}. Size must be
- * equal to {@code input.num_columns()} or empty. If empty, all columns are sorted in
- * ascending order.
- * @param null_precedence The desired order of a null element compared to other
- * elements for each column in {@code keys}. Size must be equal to
- * {@code keys.num_columns()} or empty. If empty, all columns will be sorted with
- * {@code null_order::BEFORE}.
- * @param mr Device memory resource used to allocate the returned table's device memory
- * @return The reordering of {@code values} determined by the lexicographic order of
- * the rows of {@code keys}.
- */
-@Namespace("cudf") public static native @UniquePtr table sort_by_key(
-  @Const @ByRef table_view values,
-  @Const @ByRef table_view keys,
-  @StdVector order column_order/*={}*/,
-  @StdVector null_order null_precedence/*={}*/,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table sort_by_key(
-  @Const @ByRef table_view values,
-  @Const @ByRef table_view keys);
-
-/**
- * \brief Computes the ranks of input column in sorted order.
- *
- * Rank indicate the position of each element in the sorted column and rank
- * value starts from 1.
- *
- * <pre>{@code {.pseudo}
- * input = { 3, 4, 5, 4, 1, 2}
- * Result for different rank_method are
- * FIRST    = {3, 4, 6, 5, 1, 2}
- * AVERAGE  = {3, 4.5, 6, 4.5, 1, 2}
- * MIN      = {3, 4, 6, 4, 1, 2}
- * MAX      = {3, 5, 6, 5, 1, 2}
- * DENSE    = {3, 4, 5, 4, 1, 2}
- * }</pre>
- *
- * @param input The column to rank
- * @param method The ranking method used for tie breaking (same values).
- * @param column_order The desired sort order for ranking
- * @param null_handling  flag to include nulls during ranking. If nulls are not
- * included, corresponding rank will be null.
- * @param null_precedence The desired order of null compared to other elements
- * for column
- * @param percentage flag to convert ranks to percentage in range (0,1}
- * @param mr Device memory resource used to allocate the returned column's device memory
- * @return std::unique_ptr<column> A column of containing the rank of the each
- * element of the column of {@code input}. The output column type will be {@code size_type}
- * column by default or else {@code double} when {@code method=rank_method::AVERAGE} or
- *{@code percentage=True}
- */
-@Namespace("cudf") public static native @UniquePtr column rank(
-  @Const @ByRef column_view input,
-  rank_method method,
-  @ByVal order column_order,
-  @ByVal null_policy null_handling,
-  @ByVal null_order null_precedence,
-  @Cast("bool") boolean percentage,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column rank(
-  @Const @ByRef column_view input,
-  rank_method method,
-  @ByVal order column_order,
-  @ByVal null_policy null_handling,
-  @ByVal null_order null_precedence,
-  @Cast("bool") boolean percentage);
-@Namespace("cudf") public static native @UniquePtr column rank(
-  @Const @ByRef column_view input,
-  @Cast("cudf::rank_method") int method,
-  @ByVal order column_order,
-  @ByVal null_policy null_handling,
-  @ByVal null_order null_precedence,
-  @Cast("bool") boolean percentage,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column rank(
-  @Const @ByRef column_view input,
-  @Cast("cudf::rank_method") int method,
-  @ByVal order column_order,
-  @ByVal null_policy null_handling,
-  @ByVal null_order null_precedence,
-  @Cast("bool") boolean percentage);
-
-/** \} */  // end of group
-  // namespace cudf
-
-
-// Parsed from cudf/stream_compaction.hpp
-
-/*
- * Copyright (c) 2019, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// #pragma once
-
-// #include <cudf/types.hpp>
-
-// #include <memory>
-// #include <vector>
-/**
- * \addtogroup reorder_compact
- * \{
- * \file
- * \brief Column APIs for filtering rows
- */
-
-/**
- * \brief Filters a table to remove null elements with threshold count.
- *
- * Filters the rows of the {@code input} considering specified columns indicated in
- * {@code keys} for validity / null values.
- *
- * Given an input table_view, row {@code i} from the input columns is copied to
- * the output if the same row {@code i} of \p keys has at least \p keep_threshold
- * non-null fields.
- *
- * This operation is stable: the input order is preserved in the output.
- *
- * Any non-nullable column in the input is treated as all non-null.
- *
- * <pre>{@code {.pseudo}
- *          input   {col1: {1, 2,    3,    null},
- *                   col2: {4, 5,    null, null},
- *                   col3: {7, null, null, null}}
- *          keys = {0, 1, 2} // All columns
- *          keep_threshold = 2
- *
- *          output {col1: {1, 2}
- *                  col2: {4, 5}
- *                  col3: {7, null}}
- * }</pre>
- *
- * \note if \p input.num_rows() is zero, or \p keys is empty or has no nulls,
- * there is no error, and an empty {@code table} is returned
- *
- * @param input [in] The input {@code table_view} to filter.
- * @param keys [in]  vector of indices representing key columns from {@code input}
- * @param keep_threshold [in] The minimum number of non-null fields in a row
- *                           required to keep the row.
- * @param mr [in] Device memory resource used to allocate the returned table's device memory
- * @return Table containing all rows of the {@code input} with at least \p
- * keep_threshold non-null fields in \p keys.
- */
-@Namespace("cudf") public static native @UniquePtr table drop_nulls(
-  @Const @ByRef table_view input,
-  @StdVector size_type keys,
-  @ByVal size_type keep_threshold,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table drop_nulls(
-  @Const @ByRef table_view input,
-  @StdVector size_type keys,
-  @ByVal size_type keep_threshold);
-
-/**
- * \brief Filters a table to remove null elements.
- *
- * Filters the rows of the {@code input} considering specified columns indicated in
- * {@code keys} for validity / null values.
- *
- * <pre>{@code {.pseudo}
- *          input   {col1: {1, 2,    3,    null},
- *                   col2: {4, 5,    null, null},
- *                   col3: {7, null, null, null}}
- *          keys = {0, 1, 2} //All columns
- *
- *          output {col1: {1}
- *                  col2: {4}
- *                  col3: {7}}
- * }</pre>
- *
- * Same as drop_nulls but defaults keep_threshold to the number of columns in
- * \p keys.
- *
- * @param input [in] The input {@code table_view} to filter.
- * @param keys [in]  vector of indices representing key columns from {@code input}
- * @param mr [in] Device memory resource used to allocate the returned table's device memory
- * @return Table containing all rows of the {@code input} without nulls in the columns
- * of \p keys.
- */
-@Namespace("cudf") public static native @UniquePtr table drop_nulls(
-  @Const @ByRef table_view input,
-  @StdVector size_type keys,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table drop_nulls(
-  @Const @ByRef table_view input,
-  @StdVector size_type keys);
-
-/**
- * \brief Filters a table to remove NANs with threshold count.
- *
- * Filters the rows of the {@code input} considering specified columns indicated in
- * {@code keys} for NANs. These key columns must be of floating-point type.
- *
- * Given an input table_view, row {@code i} from the input columns is copied to
- * the output if the same row {@code i} of \p keys has at least \p keep_threshold
- * non-NAN elements.
- *
- * This operation is stable: the input order is preserved in the output.
- *
- * <pre>{@code {.pseudo}
- *          input   {col1: {1.0, 2.0, 3.0, NAN},
- *                   col2: {4.0, null, NAN, NAN},
- *                   col3: {7.0, NAN, NAN, NAN}}
- *          keys = {0, 1, 2} // All columns
- *          keep_threshold = 2
- *
- *          output {col1: {1.0, 2.0}
- *                  col2: {4.0, null}
- *                  col3: {7.0, NAN}}
- * }</pre>
- *
- * \note if \p input.num_rows() is zero, or \p keys is empty,
- * there is no error, and an empty {@code table} is returned
- *
- * @throws cudf::logic_error if The {@code keys} columns are not floating-point type.
- *
- * @param input [in] The input {@code table_view} to filter.
- * @param keys [in]  vector of indices representing key columns from {@code input}
- * @param keep_threshold [in] The minimum number of non-NAN elements in a row
- *                           required to keep the row.
- * @param mr [in] Device memory resource used to allocate the returned table's device memory
- * @return Table containing all rows of the {@code input} with at least \p
- * keep_threshold non-NAN elements in \p keys.
- */
-@Namespace("cudf") public static native @UniquePtr table drop_nans(
-  @Const @ByRef table_view input,
-  @StdVector size_type keys,
-  @ByVal size_type keep_threshold,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table drop_nans(
-  @Const @ByRef table_view input,
-  @StdVector size_type keys,
-  @ByVal size_type keep_threshold);
-
-/**
- * \brief Filters a table to remove NANs.
- *
- * Filters the rows of the {@code input} considering specified columns indicated in
- * {@code keys} for NANs. These key columns must be of floating-point type.
- *
- * <pre>{@code {.pseudo}
- *          input   {col1: {1.0, 2.0, 3.0, NAN},
- *                   col2: {4.0, null, NAN, NAN},
- *                   col3: {null, NAN, NAN, NAN}}
- *          keys = {0, 1, 2} // All columns
- *          keep_threshold = 2
- *
- *          output {col1: {1.0}
- *                  col2: {4.0}
- *                  col3: {null}}
- * }</pre>
- *
- * Same as drop_nans but defaults keep_threshold to the number of columns in
- * \p keys.
- *
- * @param input [in] The input {@code table_view} to filter.
- * @param keys [in]  vector of indices representing key columns from {@code input}
- * @param mr [in] Device memory resource used to allocate the returned table's device memory
- * @return Table containing all rows of the {@code input} without NANs in the columns
- * of \p keys.
- */
-@Namespace("cudf") public static native @UniquePtr table drop_nans(
-  @Const @ByRef table_view input,
-  @StdVector size_type keys,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table drop_nans(
-  @Const @ByRef table_view input,
-  @StdVector size_type keys);
-
-/**
- * \brief Filters {@code input} using {@code boolean_mask} of boolean values as a mask.
- *
- * Given an input {@code table_view} and a mask {@code column_view}, an element {@code i} from
- * each column_view of the {@code input} is copied to the corresponding output column
- * if the corresponding element {@code i} in the mask is non-null and {@code true}.
- * This operation is stable: the input order is preserved.
- *
- * \note if \p input.num_rows() is zero, there is no error, and an empty table
- * is returned.
- *
- * @throws cudf::logic_error if The {@code input} size  and {@code boolean_mask} size mismatches.
- * @throws cudf::logic_error if {@code boolean_mask} is not {@code type_id::BOOL8} type.
- *
- * @param input [in] The input table_view to filter
- * @param boolean_mask [in] A nullable column_view of type type_id::BOOL8 used
- * as a mask to filter the {@code input}.
- * @param mr [in] Device memory resource used to allocate the returned table's device memory
- * @return Table containing copy of all rows of \p input passing
- * the filter defined by \p boolean_mask.
- */
-@Namespace("cudf") public static native @UniquePtr table apply_boolean_mask(
-  @Const @ByRef table_view input,
-  @Const @ByRef column_view boolean_mask,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table apply_boolean_mask(
-  @Const @ByRef table_view input,
-  @Const @ByRef column_view boolean_mask);
-
-/**
- * \brief Choices for drop_duplicates API for retainment of duplicate rows
- */
-@Namespace("cudf") public enum duplicate_keep_option {
-  /** Keeps first duplicate row and unique rows */
-  KEEP_FIRST(0),
-  /** Keeps last  duplicate row and unique rows */
-  KEEP_LAST(1),
-  /** Keeps only unique rows are kept */
-  KEEP_NONE(2);
-
-    public final int value;
-    private duplicate_keep_option(int v) { this.value = v; }
-    private duplicate_keep_option(duplicate_keep_option e) { this.value = e.value; }
-    public duplicate_keep_option intern() { for (duplicate_keep_option e : values()) if (e.value == value) return e; return this; }
-    @Override public String toString() { return intern().name(); }
-}
-
-/**
- * \brief Create a new table without duplicate rows
- *
- * Given an {@code input} table_view, each row is copied to output table if the corresponding
- * row of {@code keys} columns is unique, where the definition of unique depends on the value of \p keep:
- * - KEEP_FIRST: only the first of a sequence of duplicate rows is copied
- * - KEEP_LAST: only the last of a sequence of duplicate rows is copied
- * - KEEP_NONE: no duplicate rows are copied
- *
- * @throws cudf::logic_error if The {@code input} row size mismatches with {@code keys}.
- *
- * @param input [in]           input table_view to copy only unique rows
- * @param keys [in]            vector of indices representing key columns from {@code input}
- * @param keep [in]            keep first entry, last entry, or no entries if duplicates found
- * @param nulls_equal [in]     flag to denote nulls are equal if null_equality::EQUAL,
- * nulls are not equal if null_equality::UNEQUAL
- * @param mr [in]              Device memory resource used to allocate the returned table's device
- * memory
- *
- * @return Table with unique rows as per specified {@code keep}.
- */
-@Namespace("cudf") public static native @UniquePtr table drop_duplicates(
-  @Const @ByRef table_view input,
-  @StdVector size_type keys,
-  duplicate_keep_option keep,
-  @ByVal(nullValue = "null_equality::EQUAL") null_equality nulls_equal,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table drop_duplicates(
-  @Const @ByRef table_view input,
-  @StdVector size_type keys,
-  duplicate_keep_option keep);
-@Namespace("cudf") public static native @UniquePtr table drop_duplicates(
-  @Const @ByRef table_view input,
-  @StdVector size_type keys,
-  @Cast("cudf::duplicate_keep_option") int keep,
-  @ByVal(nullValue = "null_equality::EQUAL") null_equality nulls_equal,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr table drop_duplicates(
-  @Const @ByRef table_view input,
-  @StdVector size_type keys,
-  @Cast("cudf::duplicate_keep_option") int keep);
-
-/**
- * \brief Count the unique elements in the column_view
- *
- * Given an input column_view, number of unique elements in this column_view is returned
- *
- * If {@code null_handling} is null_policy::EXCLUDE and {@code nan_handling} is  nan_policy::NAN_IS_NULL, both
- * {@code NaN} and {@code null} values are ignored. If {@code null_handling} is null_policy::EXCLUDE and
- * {@code nan_handling} is nan_policy::NAN_IS_VALID, only {@code null} is ignored, {@code NaN} is considered in unique
- * count.
- *
- * @param input [in] The column_view whose unique elements will be counted.
- * @param null_handling [in] flag to include or ignore {@code null} while counting
- * @param nan_handling [in] flag to consider {@code NaN==null} or not.
- *
- * @return number of unique elements
- */
-@Namespace("cudf") public static native @ByVal size_type distinct_count(@Const @ByRef column_view input,
-                               @ByVal null_policy null_handling,
-                               @ByVal nan_policy nan_handling);
-
-/**
- * \brief Count the unique rows in a table.
- *
- *
- * @param input [in] Table whose unique rows will be counted.
- * @param nulls_equal [in] flag to denote if null elements should be considered equal
- * nulls are not equal if null_equality::UNEQUAL
- *
- * @return number of unique rows in the table
- */
-@Namespace("cudf") public static native @ByVal size_type distinct_count(@Const @ByRef table_view input,
-                               @ByVal(nullValue = "null_equality::EQUAL") null_equality nulls_equal);
-@Namespace("cudf") public static native @ByVal size_type distinct_count(@Const @ByRef table_view input);
-
-/** \} */
-  // namespace cudf
-
-
-// Parsed from cudf/transform.hpp
-
-/*
- * Copyright (c) 2019, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// #pragma once
-
-// #include <cudf/types.hpp>
-
-// #include <memory>
-/**
- * \addtogroup transformation_transform
- * \{
- * \file
- * \brief Column APIs for transforming rows
- */
-
-/**
- * \brief Creates a new column by applying a unary function against every
- * element of an input column.
- *
- * Computes:
- * {@code out[i] = F(in[i])}
- *
- * The output null mask is the same is the input null mask so if input[i] is
- * null then output[i] is also null
- *
- * @param input         An immutable view of the input column to transform
- * @param unary_udf     The PTX/CUDA string of the unary function to apply
- * @param outout_type   The output type that is compatible with the output type in the UDF
- * @param is_ptx        true: the UDF is treated as PTX code; false: the UDF is treated as CUDA code
- * @param mr            Device memory resource used to allocate the returned column's device memory
- * @return              The column resulting from applying the unary function to
- *                      every element of the input
- **/
-@Namespace("cudf") public static native @UniquePtr column transform(
-  @Const @ByRef column_view input,
-  @StdString BytePointer unary_udf,
-  @ByVal data_type output_type,
-  @Cast("bool") boolean is_ptx,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column transform(
-  @Const @ByRef column_view input,
-  @StdString BytePointer unary_udf,
-  @ByVal data_type output_type,
-  @Cast("bool") boolean is_ptx);
-@Namespace("cudf") public static native @UniquePtr column transform(
-  @Const @ByRef column_view input,
-  @StdString String unary_udf,
-  @ByVal data_type output_type,
-  @Cast("bool") boolean is_ptx,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column transform(
-  @Const @ByRef column_view input,
-  @StdString String unary_udf,
-  @ByVal data_type output_type,
-  @Cast("bool") boolean is_ptx);
-
-/**
- * \brief Creates a null_mask from {@code input} by converting {@code NaN} to null and
- * preserving existing null values and also returns new null_count.
- *
- * @throws cudf::logic_error if {@code input.type()} is a non-floating type
- *
- * @param input         An immutable view of the input column of floating-point type
- * @param mr            Device memory resource used to allocate the returned bitmask.
- * @return A pair containing a {@code device_buffer} with the new bitmask and it's
- * null count obtained by replacing {@code NaN} in {@code input} with null.
- **/
-@Namespace("cudf") public static native @ByVal std::pair<std::unique_ptr<rmm::device_buffer>,size_type> nans_to_nulls(
-  @Const @ByRef column_view input,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal std::pair<std::unique_ptr<rmm::device_buffer>,size_type> nans_to_nulls(
-  @Const @ByRef column_view input);
-
-/**
- * \brief Creates a bitmask from a column of boolean elements.
- *
- * If element {@code i} in {@code input} is {@code true}, bit {@code i} in the resulting mask is set ({@code 1}). Else,
- * if element {@code i} is {@code false} or null, bit {@code i} is unset ({@code 0}).
- *
- *
- * @throws cudf::logic_error if {@code input.type()} is a non-boolean type
- *
- * @param input        Boolean elements to convert to a bitmask.
- * @param mr           Device memory resource used to allocate the returned bitmask.
- * @return A pair containing a {@code device_buffer} with the new bitmask and it's
- * null count obtained from input considering {@code true} represent {@code valid}/{@code 1} and
- * {@code false} represent {@code invalid}/{@code 0}.
- **/
-@Namespace("cudf") public static native @ByVal std::pair<std::unique_ptr<rmm::device_buffer>,cudf::size_type> bools_to_mask(
-  @Const @ByRef column_view input,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal std::pair<std::unique_ptr<rmm::device_buffer>,cudf::size_type> bools_to_mask(
-  @Const @ByRef column_view input);
-
-/**
- * \brief Encode the rows of the given table as integers
- *
- * The encoded values are integers in the range [0, n), where {@code n}
- * is the number of distinct rows in the input table.
- * The result table is such that {@code keys[result[i]] == input[i]},
- * where {@code keys} is a table containing the distinct rows  in {@code input} in
- * sorted ascending order. Nulls, if any, are sorted to the end of
- * the {@code keys} table.
- *
- * Examples:
- * <pre>{@code {.pseudo}
- * input: [{'a', 'b', 'b', 'a'}]
- * output: [{'a', 'b'}], {0, 1, 1, 0}
- *
- * input: [{1, 3, 1, 2, 9}, {1, 2, 1, 3, 5}]
- * output: [{1, 2, 3, 9}, {1, 3, 2, 5}], {0, 2, 0, 1, 3}
- * }</pre>
- *
- * @param input Table containing values to be encoded
- * @param mr Device memory resource used to allocate the returned table's device memory
- * @return A pair containing the distinct row of the input table in sorter order,
- * and a column of integer indices representing the encoded rows.
- */
-@Namespace("cudf") public static native @ByVal std::pair<std::unique_ptr<cudf::table>,std::unique_ptr<cudf::column> > encode(
-  @Const @ByRef table_view input,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal std::pair<std::unique_ptr<cudf::table>,std::unique_ptr<cudf::column> > encode(
-  @Const @ByRef table_view input);
-
-/**
- * \brief Creates a boolean column from given bitmask.
- *
- * Returns a {@code bool} for each bit in {@code [begin_bit, end_bit)}. If bit {@code i} in least-significant bit
- * numbering is set (1), then element {@code i} in the output is {@code true}, otherwise {@code false}.
- *
- * @throws cudf::logic_error if {@code bitmask} is null and end_bit-begin_bit > 0
- * @throws cudf::logic_error if begin_bit > end_bit
- *
- * Examples:
- * <pre>{@code {.pseudo}
- * input: {0b10101010}
- * output: [{false, true, false, true, false, true, false, true}]
- * }</pre>
- *
- * @param bitmask A device pointer to the bitmask which needs to be converted
- * @param begin_bit position of the bit from which the conversion should start
- * @param end_bit position of the bit before which the conversion should stop
- * @param mr Device memory resource used to allocate the returned columns's device memory
- * @return A boolean column representing the given mask from [begin_bit, end_bit).
- */
-@Namespace("cudf") public static native @UniquePtr column mask_to_bools(
-  @Const bitmask_type bitmask,
-  @ByVal size_type begin_bit,
-  @ByVal size_type end_bit,
-  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column mask_to_bools(
-  @Const bitmask_type bitmask,
-  @ByVal size_type begin_bit,
-  @ByVal size_type end_bit);
-
-/** \} */  // end of group
-  // namespace cudf
-
-
 // Parsed from cudf/transpose.hpp
 
 /*
@@ -5341,13 +863,776 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  *                  {@code table_view}, representing the owner and transposed table,
  *                  respectively.
  */
-@Namespace("cudf") public static native @ByVal std::pair<std::unique_ptr<column>,table_view> transpose(
+@Namespace("cudf") public static native @ByVal PairColumnTableView transpose(
   @Const @ByRef table_view input,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal std::pair<std::unique_ptr<column>,table_view> transpose(
+@Namespace("cudf") public static native @ByVal PairColumnTableView transpose(
   @Const @ByRef table_view input);
 
 /** \} */  // end of group
+  // namespace cudf
+
+
+// Parsed from cudf/column/column.hpp
+
+/*
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+// #pragma once
+
+// #include <cudf/column/column_view.hpp>
+
+// #include <cudf/null_mask.hpp>
+// #include <cudf/types.hpp>
+
+// #include <rmm/cuda_stream_view.hpp>
+// #include <rmm/device_buffer.hpp>
+
+// #include <memory>
+// #include <type_traits>
+// #include <utility>
+// #include <vector>
+
+/**
+ * \file
+ * \brief Class definition for cudf::column
+ */
+// Targeting ../column.java
+
+
+
+/** \} */  // end of group
+  // namespace cudf
+
+
+// Parsed from cudf/column/column_factories.hpp
+
+/*
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+// #pragma once
+
+// #include <cudf/column/column.hpp>
+// #include <cudf/types.hpp>
+// #include <cudf/utilities/traits.hpp>
+
+// #include <rmm/thrust_rmm_allocator.h>
+// #include <rmm/cuda_stream_view.hpp>
+/**
+ * \addtogroup column_factories
+ * \{
+ * \file
+ * \brief Column factory APIs
+ */
+
+/**
+ * \brief Creates an empty column of the specified \p type
+ *
+ * An empty column contains zero elements and no validity mask.
+ *
+ * @param type [in] The column data type
+ * @return Empty column with desired type
+ */
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_empty_column(@ByVal data_type type);
+
+/**
+ * \brief Construct column with sufficient uninitialized storage
+ * to hold {@code size} elements of the specified numeric {@code data_type} with an optional
+ * null mask.
+ *
+ * \note {@code null_count()} is determined by the requested null mask {@code state}
+ *
+ * @throws std::bad_alloc if device memory allocation fails
+ * @throws cudf::logic_error if {@code type} is not a numeric type
+ *
+ * @param type [in] The desired numeric element type
+ * @param size [in] The number of elements in the column
+ * @param state [in] Optional, controls allocation/initialization of the
+ * column's null mask. By default, no null mask is allocated.
+ * @param stream [in] CUDA stream used for device memory operations and kernel launches.
+ * @param mr [in] Device memory resource used to allocate the returned column's device memory
+ */
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_numeric_column(
+  @ByVal data_type type,
+  @ByVal IntPointer size,
+  @ByVal(nullValue = "mask_state::UNALLOCATED") mask_state state,
+  @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_numeric_column(
+  @ByVal data_type type,
+  @ByVal IntPointer size);
+
+/**
+ * \brief Construct column with sufficient uninitialized storage
+ * to hold {@code size} elements of the specified numeric {@code data_type} with a
+ * null mask.
+ *
+ * \note null_count is optional and will be computed if not provided.
+ *
+ * @throws std::bad_alloc if device memory allocation fails
+ * @throws cudf::logic_error if {@code type} is not a numeric type
+ *
+ * @param type [in] The desired numeric element type
+ * @param size [in] The number of elements in the column
+ * @param null_mask [in] Null mask to use for this column.
+ * @param null_count [in] Optional number of nulls in the null_mask.
+ * @param stream [in] CUDA stream used for device memory operations and kernel launches.
+ * @param mr [in] Device memory resource used to allocate the returned column's device memory
+ */
+
+/**
+ * \brief Construct column with sufficient uninitialized storage to hold {@code size} elements of the
+ * specified {@code fixed_point} {@code data_type} with an optional null mask.
+ *
+ * \note The column's null count is determined by the requested null mask {@code state}.
+ *
+ * @throws cudf::logic_error if {@code type} is not a {@code fixed_point} type.
+ *
+ * @param type [in] The desired {@code fixed_point} element type.
+ * @param size [in] The number of elements in the column.
+ * @param state [in] Optional, controls allocation/initialization of the.
+ * column's null mask. By default, no null mask is allocated.
+ * @param stream [in] CUDA stream used for device memory operations and kernel launches.
+ * @param mr [in] Device memory resource used to allocate the returned column's device memory.
+ */
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_fixed_point_column(
+  @ByVal data_type type,
+  @ByVal IntPointer size,
+  @ByVal(nullValue = "mask_state::UNALLOCATED") mask_state state,
+  @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_fixed_point_column(
+  @ByVal data_type type,
+  @ByVal IntPointer size);
+
+/**
+ * \brief Construct column with sufficient uninitialized storage to hold {@code size} elements of the
+ * specified {@code fixed_point} {@code data_type} with a null mask.
+ *
+ * \note null_count is optional and will be computed if not provided.
+ *
+ * @throws cudf::logic_error if {@code type} is not a {@code fixed_point} type.
+ *
+ * @param type [in] The desired {@code fixed_point} element type.
+ * @param size [in] The number of elements in the column.
+ * @param null_mask [in] Null mask to use for this column.
+ * @param null_count [in] Optional number of nulls in the null_mask.
+ * @param stream [in] CUDA stream used for device memory operations and kernel launches.
+ * @param mr [in] Device memory resource used to allocate the returned column's device memory.
+ */
+
+/**
+ * \brief Construct column with sufficient uninitialized storage
+ * to hold {@code size} elements of the specified timestamp {@code data_type} with an
+ * optional null mask.
+ *
+ * \note {@code null_count()} is determined by the requested null mask {@code state}
+ *
+ * @throws std::bad_alloc if device memory allocation fails
+ * @throws cudf::logic_error if {@code type} is not a timestamp type
+ *
+ * @param type [in] The desired timestamp element type
+ * @param size [in] The number of elements in the column
+ * @param state [in] Optional, controls allocation/initialization of the
+ * column's null mask. By default, no null mask is allocated.
+ * @param stream [in] CUDA stream used for device memory operations and kernel launches.
+ * @param mr [in] Device memory resource used to allocate the returned column's device memory
+ */
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_timestamp_column(
+  @ByVal data_type type,
+  @ByVal IntPointer size,
+  @ByVal(nullValue = "mask_state::UNALLOCATED") mask_state state,
+  @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_timestamp_column(
+  @ByVal data_type type,
+  @ByVal IntPointer size);
+
+/**
+ * \brief Construct column with sufficient uninitialized storage
+ * to hold {@code size} elements of the specified timestamp {@code data_type} with a
+ * null mask.
+ *
+ * \note null_count is optional and will be computed if not provided.
+ *
+ * @throws std::bad_alloc if device memory allocation fails
+ * @throws cudf::logic_error if {@code type} is not a timestamp type
+ *
+ * @param type [in] The desired timestamp element type
+ * @param size [in] The number of elements in the column
+ * @param null_mask [in] Null mask to use for this column.
+ * @param null_count [in] Optional number of nulls in the null_mask.
+ * @param stream [in] CUDA stream used for device memory operations and kernel launches.
+ * @param mr [in] Device memory resource used to allocate the returned column's device memory
+ */
+
+/**
+ * \brief Construct column with sufficient uninitialized storage
+ * to hold {@code size} elements of the specified duration {@code data_type} with an
+ * optional null mask.
+ *
+ * \note {@code null_count()} is determined by the requested null mask {@code state}
+ *
+ * @throws std::bad_alloc if device memory allocation fails
+ * @throws cudf::logic_error if {@code type} is not a duration type
+ *
+ * @param type [in] The desired duration element type
+ * @param size [in] The number of elements in the column
+ * @param state [in] Optional, controls allocation/initialization of the
+ * column's null mask. By default, no null mask is allocated.
+ * @param stream [in] CUDA stream used for device memory operations and kernel launches.
+ * @param mr [in] Device memory resource used to allocate the returned column's device memory
+ */
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_duration_column(
+  @ByVal data_type type,
+  @ByVal IntPointer size,
+  @ByVal(nullValue = "mask_state::UNALLOCATED") mask_state state,
+  @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_duration_column(
+  @ByVal data_type type,
+  @ByVal IntPointer size);
+
+/**
+ * \brief Construct column with sufficient uninitialized storage
+ * to hold {@code size} elements of the specified duration {@code data_type} with a
+ * null mask.
+ *
+ * \note null_count is optional and will be computed if not provided.
+ *
+ * @throws std::bad_alloc if device memory allocation fails
+ * @throws cudf::logic_error if {@code type} is not a duration type
+ *
+ * @param type [in] The desired duration element type
+ * @param size [in] The number of elements in the column
+ * @param null_mask [in] Null mask to use for this column.
+ * @param null_count [in] Optional number of nulls in the null_mask.
+ * @param stream [in] CUDA stream used for device memory operations and kernel launches.
+ * @param mr [in] Device memory resource used to allocate the returned column's device memory
+ */
+
+/**
+ * \brief Construct column with sufficient uninitialized storage
+ * to hold {@code size} elements of the specified fixed width {@code data_type} with an optional
+ * null mask.
+ *
+ * \note {@code null_count()} is determined by the requested null mask {@code state}
+ *
+ * @throws std::bad_alloc if device memory allocation fails
+ * @throws cudf::logic_error if {@code type} is not a fixed width type
+ *
+ * @param type [in] The desired fixed width type
+ * @param size [in] The number of elements in the column
+ * @param state [in] Optional, controls allocation/initialization of the
+ * column's null mask. By default, no null mask is allocated.
+ * @param stream [in] CUDA stream used for device memory operations and kernel launches.
+ * @param mr [in] Device memory resource used to allocate the returned column's device memory
+ */
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_fixed_width_column(
+  @ByVal data_type type,
+  @ByVal IntPointer size,
+  @ByVal(nullValue = "mask_state::UNALLOCATED") mask_state state,
+  @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_fixed_width_column(
+  @ByVal data_type type,
+  @ByVal IntPointer size);
+
+/**
+ * \brief Construct column with sufficient uninitialized storage
+ * to hold {@code size} elements of the specified fixed width {@code data_type} with a
+ * null mask.
+ *
+ * \note null_count is optional and will be computed if not provided.
+ *
+ * @throws std::bad_alloc if device memory allocation fails
+ * @throws cudf::logic_error if {@code type} is not a fixed width type
+ *
+ * @param type [in] The desired fixed width element type
+ * @param size [in] The number of elements in the column
+ * @param null_mask [in] Null mask to use for this column.
+ * @param null_count [in] Optional number of nulls in the null_mask.
+ * @param stream [in] CUDA stream used for device memory operations and kernel launches.
+ * @param mr [in] Device memory resource used to allocate the returned column's device memory
+ */
+
+/**
+ * \brief Construct STRING type column given a device vector of pointer/size pairs.
+ * The total number of char bytes must not exceed the maximum size of size_type.
+ * The string characters are expected to be UTF-8 encoded sequence of char
+ * bytes. Use the strings_column_view class to perform strings operations on
+ * this type of column.
+ *
+ * \note {@code null_count()} and {@code null_bitmask} are determined if a pair contains
+ * a null string. That is, for each pair, if {@code .first} is null, that string
+ * is considered null. Likewise, a string is considered empty (not null)
+ * if {@code .first} is not null and {@code .second} is 0. Otherwise the {@code .first} member
+ * must be a valid device address pointing to {@code .second} consecutive bytes.
+ *
+ * @throws std::bad_alloc if device memory allocation fails
+ *
+ * @param strings [in] The vector of pointer/size pairs.
+ *                Each pointer must be a device memory address or {@code nullptr}
+ * (indicating a null string). The size must be the number of bytes.
+ * @param stream [in] CUDA stream used for device memory operations and kernel launches.
+ * @param mr [in] Device memory resource used for allocation of the column's {@code null_mask} and children
+ * columns' device memory.
+ */
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
+  @Const @ByRef rmm::device_vector<thrust::pair<const char*,cudf::size_type> > strings,
+  @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
+  @Const @ByRef rmm::device_vector<thrust::pair<const char*,cudf::size_type> > strings);
+
+/**
+ * \brief Construct STRING type column given a device vector of string_view.
+ * The total number of char bytes must not exceed the maximum size of size_type.
+ * The string characters are expected to be UTF-8 encoded sequence of char
+ * bytes. Use the strings_column_view class to perform strings operations on
+ * this type of column.
+ *
+ * \note For each string_view, if {@code .data()} is {@code null_placeholder.data()}, that
+ * string is considered null. Likewise, a string is considered empty (not null)
+ * if {@code .data()} is not {@code null_placeholder.data()} and {@code .size_bytes()} is 0.
+ * Otherwise the {@code .data()} must be a valid device address pointing to
+ * {@code .size_bytes()} consecutive bytes. The {@code null_count()} for the output column
+ * will be equal to the number of input {@code string_view}s that are null.
+ *
+ * @throws std::bad_alloc if device memory allocation fails
+ *
+ * @param string_views [in] The vector of string_view.
+ *                Each string_view must point to a device memory address or
+ * {@code null_placeholder} (indicating a null string). The size must be the number of
+ * bytes.
+ * @param null_placeholder [in] string_view indicating null string in given list of
+ * string_views.
+ * @param stream [in] CUDA stream used for device memory operations and kernel launches.
+ * @param mr [in] Device memory resource used for allocation of the column's {@code null_mask} and children
+ * columns' device memory.
+ */
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
+  @Const @ByRef rmm::device_vector<string_view> string_views,
+  @Const @ByVal string_view null_placeholder,
+  @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
+  @Const @ByRef rmm::device_vector<string_view> string_views,
+  @Const @ByVal string_view null_placeholder);
+
+/**
+ * \brief Construct STRING type column given a device vector of chars
+ * encoded as UTF-8, a device vector of byte offsets identifying individual
+ * strings within the char vector, and an optional null bitmask.
+ *
+ * {@code offsets.front()} must always be zero.
+ *
+ * The total number of char bytes must not exceed the maximum size of size_type.
+ * Use the strings_column_view class to perform strings operations on this type
+ * of column.
+ * This function makes a deep copy of the strings, offsets, null_mask to create
+ * a new column.
+ *
+ * @throws std::bad_alloc if device memory allocation fails
+ *
+ * @param strings [in] The vector of chars in device memory.
+ *                This char vector is expected to be UTF-8 encoded characters.
+ * @param offsets [in] The vector of byte offsets in device memory.
+ *                The number of elements is one more than the total number
+ *                of strings so the {@code offsets.back()} is the total
+ *                number of bytes in the strings array.
+ *                {@code offsets.front()} must always be 0 to point to the beginning
+ *                of {@code strings}.
+ * @param null_mask [in] Device vector containing the null element indicator bitmask.
+ *                  Arrow format for nulls is used for interpeting this bitmask.
+ * @param null_count [in] The number of null string entries. If equal to
+ * {@code UNKNOWN_NULL_COUNT}, the null count will be computed dynamically on the
+ * first invocation of {@code column::null_count()}
+ * @param stream [in] CUDA stream used for device memory operations and kernel launches.
+ * @param mr [in] Device memory resource used for allocation of the column's {@code null_mask} and children
+ * columns' device memory.
+ */
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
+  @Const @ByRef rmm::device_vector<char> strings,
+  @Const @ByRef rmm::device_vector<cudf::size_type> offsets,
+  @Const @ByRef(nullValue = "rmm::device_vector<bitmask_type>({})") rmm::device_vector<bitmask_type> null_mask,
+  @ByVal(nullValue = "cudf::size_type(cudf::UNKNOWN_NULL_COUNT)") IntPointer null_count,
+  @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
+  @Const @ByRef rmm::device_vector<char> strings,
+  @Const @ByRef rmm::device_vector<cudf::size_type> offsets);
+
+/**
+ * \brief Construct STRING type column given a host vector of chars
+ * encoded as UTF-8, a host vector of byte offsets identifying individual
+ * strings within the char vector, and an optional null bitmask.
+ *
+ * {@code offsets.front()} must always be zero.
+ *
+ * The total number of char bytes must not exceed the maximum size of size_type.
+ * Use the strings_column_view class to perform strings operations on this type
+ * of column.
+ * This function makes a deep copy of the strings, offsets, null_mask to create
+ * a new column.
+ *
+ * @throws std::bad_alloc if device memory allocation fails
+ *
+ * @param strings [in] The contiguous array of chars in host memory.
+ *                This char array is expected to be UTF-8 encoded characters.
+ * @param offsets [in] The array of byte offsets in host memory.
+ *                The number of elements is one more than the total number
+ *                of strings so the {@code offsets.back()} is the total
+ *                number of bytes in the strings array.
+ *                {@code offsets.front()} must always be 0 to point to the beginning
+ *                of {@code strings}.
+ * @param null_mask [in] Host vector containing the null element indicator bitmask.
+ *                  Arrow format for nulls is used for interpeting this bitmask.
+ * @param null_count [in] The number of null string entries. If equal to
+ * {@code UNKNOWN_NULL_COUNT}, the null count will be computed dynamically on the
+ * first invocation of {@code column::null_count()}
+ * @param stream [in] CUDA stream used for device memory operations and kernel launches.
+ * @param mr [in] Device memory resource used for allocation of the column's {@code null_mask} and children
+ * columns' device memory.
+ */
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
+  @Cast("char*") @StdVector BytePointer strings,
+  @StdVector IntPointer offsets,
+  @StdVector bitmask_type null_mask/*={}*/,
+  @ByVal(nullValue = "cudf::size_type(cudf::UNKNOWN_NULL_COUNT)") IntPointer null_count,
+  @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
+  @Cast("char*") @StdVector BytePointer strings,
+  @StdVector IntPointer offsets);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
+  @Cast("char*") @StdVector ByteBuffer strings,
+  @StdVector IntPointer offsets,
+  @StdVector bitmask_type null_mask/*={}*/,
+  @ByVal(nullValue = "cudf::size_type(cudf::UNKNOWN_NULL_COUNT)") IntPointer null_count,
+  @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
+  @Cast("char*") @StdVector ByteBuffer strings,
+  @StdVector IntPointer offsets);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
+  @Cast("char*") @StdVector byte[] strings,
+  @StdVector IntPointer offsets,
+  @StdVector bitmask_type null_mask/*={}*/,
+  @ByVal(nullValue = "cudf::size_type(cudf::UNKNOWN_NULL_COUNT)") IntPointer null_count,
+  @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
+  @Cast("char*") @StdVector byte[] strings,
+  @StdVector IntPointer offsets);
+
+/**
+ * \brief Constructs a STRING type column given offsets column, chars columns,
+ * and null mask and null count. The columns and mask are moved into the
+ * resulting strings column.
+ *
+ * @param num_strings [in] The number of strings the column represents.
+ * @param offsets_column [in] The column of offset values for this column.
+ *                       The number of elements is one more than the total number
+ *                       of strings so the offset[last] - offset[0] is the total
+ *                       number of bytes in the strings vector.
+ * @param chars_column [in] The column of char bytes for all the strings for this column.
+ *                     Individual strings are identified by the offsets and the
+ *                     nullmask.
+ * @param null_count [in] The number of null string entries.
+ * @param null_mask [in] The bits specifying the null strings in device memory.
+ *                  Arrow format for nulls is used for interpeting this bitmask.
+ * @param stream [in] CUDA stream used for device memory operations and kernel launches.
+ * @param mr [in] Device memory resource used for allocation of the column's {@code null_mask} and children
+ * columns' device memory.
+ */
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
+  @ByVal IntPointer num_strings,
+  @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column offsets_column,
+  @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column chars_column,
+  @ByVal IntPointer null_count,
+  @ByVal device_buffer null_mask,
+  @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
+  @ByVal IntPointer num_strings,
+  @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column offsets_column,
+  @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column chars_column,
+  @ByVal IntPointer null_count,
+  @ByVal device_buffer null_mask);
+
+/**
+ * \brief Constructs a LIST type column given offsets column, child column,
+ * and null mask and null count.
+ *
+ * The columns and mask are moved into the resulting lists column.
+ *
+ *
+ * List columns are structured similarly to strings columns.  They contain
+ * a set of offsets which represents the lengths of the lists in each row, and
+ * a "child" column of data that is referenced by the offsets.  Since lists
+ * are a nested type, the child column may itself be further nested.
+ *
+ * When child column at depth N+1 is itself a list, the offsets column at
+ * depth N references the offsets column for depth N+1.  When the child column at depth
+ * N+1 is a leaf type (int, float, etc), the offsets column at depth N references
+ * the data for depth N+1.
+ *
+ * <pre>{@code {.pseudo}
+ * Example:
+ * List<int>
+ * input:              {{1, 2}, {3, 4, 5}}
+ * offsets (depth 0)   {0, 2, 5}
+ * data    (depth 0)
+ * offsets (depth 1)
+ * data    (depth 1)   {1, 2, 3, 4, 5}
+ * }</pre>
+ *
+ * <pre>{@code {.pseudo}
+ * Example:
+ * List<List<int>>
+ * input:              { {{1, 2}}, {{3, 4, 5}, {6, 7}} }
+ * offsets (depth 0)   {0, 1, 3}
+ * data    (depth 0)
+ * offsets (depth 1)   {0, 2, 5, 7}
+ * data    (depth 1)
+ * offsets (depth 2)
+ * data    (depth 1)   {1, 2, 3, 4, 5, 6, 7}
+ * }</pre>
+ *
+ * @param num_lists [in] The number of lists the column represents.
+ * @param offsets_column [in] The column of offset values for this column. Each value should
+ * represent the starting offset into the child elements that corresponds to the beginning of the
+ * row, with the first row starting at 0. The length of row N can be determined by subtracting
+ * offsets[N+1] - offsets[N]. The total number of offsets should be 1 longer than the # of rows in
+ * the column.
+ * @param child_column [in] The column of nested data referenced by the lists represented by the
+ *                     offsets_column. Note: the child column may itself be
+ *                     further nested.
+ * @param null_count [in] The number of null list entries.
+ * @param null_mask [in] The bits specifying the null lists in device memory.
+ *                  Arrow format for nulls is used for interpeting this bitmask.
+ * @param stream [in] Optional stream for use with all memory allocation
+ *               and device kernels
+ * @param mr [in] Optional resource to use for device memory
+ *           allocation of the column's {@code null_mask} and children.
+ */
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_lists_column(
+  @ByVal IntPointer num_lists,
+  @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column offsets_column,
+  @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column child_column,
+  @ByVal IntPointer null_count,
+  @ByVal device_buffer null_mask,
+  @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_lists_column(
+  @ByVal IntPointer num_lists,
+  @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column offsets_column,
+  @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column child_column,
+  @ByVal IntPointer null_count,
+  @ByVal device_buffer null_mask);
+
+/**
+ * \brief Constructs a STRUCT column using specified child columns as members.
+ *
+ * Specified child/member columns and null_mask are adopted by resultant
+ * struct column.
+ *
+ * A struct column requires that all specified child columns have the same
+ * number of rows. A struct column's row count equals that of any/all
+ * of its child columns. A single struct row at any index is comprised of
+ * all the individual child column values at the same index, in the order
+ * specified in the list of child columns.
+ *
+ * The specified null mask governs which struct row has a null value. This
+ * is orthogonal to the null values of individual child columns.
+ *
+ * @param num_rows [in] The number of struct values in the struct column.
+ * @param child_columns [in] The list of child/members that the struct is comprised of.
+ * @param null_count [in] The number of null values in the struct column.
+ * @param null_mask [in] The bits specifying the null struct values in the column.
+ * @param stream [in] Optional stream for use with all memory allocation and device kernels.
+ * @param mr [in] Optional resource to use for device memory allocation.
+ *
+ */
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_structs_column(
+  @ByVal IntPointer num_rows,
+  @ByVal VectorUniqueColumnPointer child_columns,
+  @ByVal IntPointer null_count,
+  @ByVal device_buffer null_mask,
+  @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_structs_column(
+  @ByVal IntPointer num_rows,
+  @ByVal VectorUniqueColumnPointer child_columns,
+  @ByVal IntPointer null_count,
+  @ByVal device_buffer null_mask);
+
+/**
+ * \brief Return a column with size elements that are all equal to the
+ * given scalar.
+ *
+ * The output column will have the same type as {@code s.type()}
+ * The output column will contain all null rows if {@code s.invalid()==false}
+ * The output column will be empty if {@code size==0}.
+ *
+ * @param s [in] The scalar to use for values in the column.
+ * @param size [in] The number of rows for the output column.
+ * @param stream [in] CUDA stream used for device memory operations and kernel launches.
+ * @param mr [in] Device memory resource used to allocate the returned column's device memory.
+ */
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_column_from_scalar(
+  @Const @ByRef scalar s,
+  @ByVal IntPointer size,
+  @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_column_from_scalar(
+  @Const @ByRef scalar s,
+  @ByVal IntPointer size);
+
+/**
+ * \brief Return a dictionary column with size elements that are all equal to the
+ * given scalar.
+ *
+ * The output column will have keys of type {@code s.type()}
+ * The output column will be empty if {@code size==0}.
+ *
+ * @throws cudf::logic_error if {@code s.is_valid()==false}
+ *
+ * @param s [in] The scalar to use for values in the column.
+ * @param size [in] The number of rows for the output column.
+ * @param stream [in] CUDA stream used for device memory operations and kernel launches.
+ * @param mr [in] Device memory resource used to allocate the returned column's device memory.
+ */
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_dictionary_from_scalar(
+  @Const @ByRef scalar s,
+  @ByVal IntPointer size,
+  @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_dictionary_from_scalar(
+  @Const @ByRef scalar s,
+  @ByVal IntPointer size);
+
+/** \} */  // end of group
+  // namespace cudf
+
+
+// Parsed from cudf/column/column_view.hpp
+
+/*
+ * Copyright (c) 2019, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+// #pragma once
+
+// #include <cudf/types.hpp>
+// #include <vector>
+
+/**
+ * \file column_view.hpp
+ * \brief column view class definitons
+ */
+// Targeting ../column_view_base.java
+
+
+// Targeting ../mutable_column_view_base.java
+
+
+
+// Targeting ../column_view.java
+
+
+// Targeting ../mutable_column_view.java
+
+
+
+/**
+ * \brief Counts the number of descendants of the specified parent.
+ *
+ * @param parent The parent whose descendants will be counted
+ * @return size_type The number of descendants of the parent
+ **/
+@Namespace("cudf") public static native @ByVal IntPointer count_descendants(@ByVal column_view parent);
+
+/**
+ * \brief Zero-copy cast between types with the same underlying representation.
+ *
+ * This is similar to {@code reinterpret_cast} or {@code bit_cast} in that it gives a view of the same raw bits
+ * as a different type. Unlike {@code reinterpret_cast} however, this cast is only allowed on types that
+ * have the same width and underlying representation. For example, the way timestamp types are laid
+ * out in memory is equivalent to an integer representing a duration since a fixed epoch; logically
+ * casting to the same integer type (INT32 for days, INT64 for others) results in a raw view of the
+ * duration count. However, an INT32 column cannot be logically cast to INT64 as the sizes differ,
+ * nor can an INT32 columm be logically cast to a FLOAT32 since what the bits represent differs.
+ *
+ * The validity of the conversion can be checked with {@code cudf::is_logically_castable()}.
+ *
+ * @throws cudf::logic_error if the specified cast is not possible, i.e.,
+ * {@code is_logically_castable(input.type(), type)} is false.
+ *
+ * @param input The {@code column_view} to cast from
+ * @param type The {@code data_type} to cast to
+ * @return New {@code column_view} wrapping the same data as {@code input} but cast to {@code type}
+ */
+@Namespace("cudf") public static native @ByVal column_view logical_cast(@Const @ByRef column_view input, @ByVal data_type type);
+
+/**
+ * \brief Zero-copy cast between types with the same underlying representation.
+ *
+ * This is similar to {@code reinterpret_cast} or {@code bit_cast} in that it gives a view of the same raw bits
+ * as a different type. Unlike {@code reinterpret_cast} however, this cast is only allowed on types that
+ * have the same width and underlying representation. For example, the way timestamp types are laid
+ * out in memory is equivalent to an integer representing a duration since a fixed epoch; logically
+ * casting to the same integer type (INT32 for days, INT64 for others) results in a raw view of the
+ * duration count. However, an INT32 column cannot be logically cast to INT64 as the sizes differ,
+ * nor can an INT32 columm be logically cast to a FLOAT32 since what the bits represent differs.
+ *
+ * The validity of the conversion can be checked with {@code cudf::is_logically_castable()}.
+ *
+ * @throws cudf::logic_error if the specified cast is not possible, i.e.,
+ * {@code is_logically_castable(input.type(), type)} is false.
+ *
+ * @param input The {@code mutable_column_view} to cast from
+ * @param type The {@code data_type} to cast to
+ * @return New {@code mutable_column_view} wrapping the same data as {@code input} but cast to {@code type}
+ */
+@Namespace("cudf") public static native @ByVal mutable_column_view logical_cast(@Const @ByRef mutable_column_view input, @ByVal data_type type);
+
   // namespace cudf
 
 
@@ -5402,15 +1687,6 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
   // namespace mr
 
   // namespace rmm
-// Targeting ../column.java
-
-
-// Targeting ../column_view.java
-
-
-// Targeting ../mutable_column_view.java
-
-
 // Targeting ../string_view.java
 
 
@@ -5466,8 +1742,7 @@ public class cudf extends ai.rapids.cudf.presets.Cudf {
  * Use this value when constructing any column-like object to indicate that
  * the null count should be computed on the first invocation of {@code null_count()}.
  **/
-@Namespace("cudf") @MemberGetter public static native @Cast("const cudf::size_type") int UNKNOWN_NULL_COUNT();
-public static final int UNKNOWN_NULL_COUNT = UNKNOWN_NULL_COUNT();
+@Namespace("cudf") @MemberGetter public static native @Const @ByRef IntPointer UNKNOWN_NULL_COUNT();
 
 /**
  * \brief Indicates the order in which elements should be sorted.
@@ -5813,18 +2088,18 @@ public static final int UNKNOWN_NULL_COUNT = UNKNOWN_NULL_COUNT();
  *
  * @return Column of same size as {@code input} containing result of the operation
  */
-@Namespace("cudf") public static native @ByVal UniqueColumnPointer unary_operation(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column unary_operation(
   @Const @ByRef column_view input,
   unary_operator op,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal UniqueColumnPointer unary_operation(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column unary_operation(
   @Const @ByRef column_view input,
   unary_operator op);
-@Namespace("cudf") public static native @ByVal UniqueColumnPointer unary_operation(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column unary_operation(
   @Const @ByRef column_view input,
   @Cast("cudf::unary_operator") int op,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal UniqueColumnPointer unary_operation(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column unary_operation(
   @Const @ByRef column_view input,
   @Cast("cudf::unary_operator") int op);
 
@@ -5838,10 +2113,10 @@ public static final int UNKNOWN_NULL_COUNT = UNKNOWN_NULL_COUNT();
  * @return A non-nullable column of {@code type_id::BOOL8} elements with {@code true}
  * representing {@code null} values.
  */
-@Namespace("cudf") public static native @ByVal UniqueColumnPointer is_null(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column is_null(
   @Const @ByRef column_view input,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal UniqueColumnPointer is_null(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column is_null(
   @Const @ByRef column_view input);
 
 /**
@@ -5854,10 +2129,10 @@ public static final int UNKNOWN_NULL_COUNT = UNKNOWN_NULL_COUNT();
  * @return A non-nullable column of {@code type_id::BOOL8} elements with {@code false}
  * representing {@code null} values.
  */
-@Namespace("cudf") public static native @ByVal UniqueColumnPointer is_valid(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column is_valid(
   @Const @ByRef column_view input,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal UniqueColumnPointer is_valid(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column is_valid(
   @Const @ByRef column_view input);
 
 /**
@@ -5872,11 +2147,11 @@ public static final int UNKNOWN_NULL_COUNT = UNKNOWN_NULL_COUNT();
  * @return Column of same size as {@code input} containing result of the cast operation
  * @throws cudf::logic_error if {@code out_type} is not a fixed-width type
  */
-@Namespace("cudf") public static native @ByVal UniqueColumnPointer cast(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column cast(
   @Const @ByRef column_view input,
   @ByVal data_type out_type,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal UniqueColumnPointer cast(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column cast(
   @Const @ByRef column_view input,
   @ByVal data_type out_type);
 
@@ -5892,10 +2167,10 @@ public static final int UNKNOWN_NULL_COUNT = UNKNOWN_NULL_COUNT();
  *
  * @return A non-nullable column of {@code type_id::BOOL8} elements with {@code true} representing {@code NAN} values
  */
-@Namespace("cudf") public static native @ByVal UniqueColumnPointer is_nan(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column is_nan(
   @Const @ByRef column_view input,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal UniqueColumnPointer is_nan(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column is_nan(
   @Const @ByRef column_view input);
 
 /**
@@ -5911,10 +2186,10 @@ public static final int UNKNOWN_NULL_COUNT = UNKNOWN_NULL_COUNT();
  * @return A non-nullable column of {@code type_id::BOOL8} elements with {@code false} representing {@code NAN}
  * values
  */
-@Namespace("cudf") public static native @ByVal UniqueColumnPointer is_not_nan(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column is_not_nan(
   @Const @ByRef column_view input,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @ByVal UniqueColumnPointer is_not_nan(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column is_not_nan(
   @Const @ByRef column_view input);
 
 /** \} */  // end of group

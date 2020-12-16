@@ -7,13 +7,185 @@ import org.bytedeco.javacpp.*;
 import org.bytedeco.javacpp.annotation.*;
 
 import static org.bytedeco.javacpp.presets.javacpp.*;
+import org.bytedeco.cuda.cudart.*;
+import static org.bytedeco.cuda.global.cudart.*;
+import ai.rapids.thrust.*;
+import static ai.rapids.cudf.global.thrust.*;
+import ai.rapids.rmm.*;
+import static ai.rapids.cudf.global.rmm.*;
 
 import static ai.rapids.cudf.global.cudf.*;
+                                       // namespace cudf
 
-@Namespace("cudf") @Opaque @Properties(inherit = ai.rapids.cudf.presets.Cudf.class)
-public class mutable_column_view extends Pointer {
-    /** Empty constructor. Calls {@code super((Pointer)null)}. */
-    public mutable_column_view() { super((Pointer)null); }
+/**
+ * \brief A non-owning, mutable view of device data as a column of elements,
+ * some of which may be null as indicated by a bitmask.
+ *
+ * \ingroup column_classes
+ *
+ * A {@code mutable_column_view} can be constructed implicitly from a {@code cudf::column},
+ * or may be constructed explicitly from a pointer to pre-existing device memory.
+ *
+ * Unless otherwise noted, the memory layout of the {@code mutable_column_view}'s data
+ * and bitmask is expected to adhere to the Arrow Physical Memory Layout
+ * Specification: https://arrow.apache.org/docs/memory_layout.html
+ *
+ * Because {@code mutable_column_view} is non-owning, no device memory is allocated
+ * nor freed when {@code mutable_column_view} objects are created or destroyed.
+ *
+ * To enable zero-copy slicing, a {@code mutable_column_view} has an {@code offset} that
+ * indicates the index of the first element in the column relative to the base
+ * device memory allocation. By default, {@code offset()} is zero.
+ *
+ **/
+@Namespace("cudf") @NoOffset @Properties(inherit = ai.rapids.cudf.presets.cudf.class)
+public class mutable_column_view extends column_view_base {
+    static { Loader.load(); }
     /** Pointer cast constructor. Invokes {@link Pointer#Pointer(Pointer)}. */
     public mutable_column_view(Pointer p) { super(p); }
+    /** Native array allocator. Access with {@link Pointer#position(long)}. */
+    public mutable_column_view(long size) { super((Pointer)null); allocateArray(size); }
+    private native void allocateArray(long size);
+    @Override public mutable_column_view position(long position) {
+        return (mutable_column_view)super.position(position);
+    }
+    @Override public mutable_column_view getPointer(long i) {
+        return new mutable_column_view(this).position(position + i);
+    }
+
+  public mutable_column_view() { super((Pointer)null); allocate(); }
+  private native void allocate();
+
+  public mutable_column_view(@Const @ByRef mutable_column_view arg0) { super((Pointer)null); allocate(arg0); }
+  private native void allocate(@Const @ByRef mutable_column_view arg0);
+  public native @ByRef @Name("operator =") mutable_column_view put(@Const @ByRef mutable_column_view arg0);
+
+  /**
+   * \brief Construct a {@code mutable_column_view} from pointers to device memory for
+   *the elements and bitmask of the column.
+   <p>
+   * If the null count of the {@code null_mask} is not specified, it defaults to
+   * {@code UNKNOWN_NULL_COUNT}. The first invocation of {@code null_count()} will then
+   * compute the null count.
+   *
+   * If {@code type} is {@code EMPTY}, the specified {@code null_count} will be ignored and
+   * {@code null_count()} will always return the same value as {@code size()}
+   *
+   * @throws cudf::logic_error if {@code size < 0}
+   * @throws cudf::logic_error if {@code size > 0} but {@code data == nullptr}
+   * @throws cudf::logic_error if {@code type.id() == EMPTY} but {@code data != nullptr}
+   *or {@code null_mask != nullptr}
+   * @throws cudf::logic_error if {@code null_count > 0}, but {@code null_mask == nullptr}
+   * @throws cudf::logic_error if {@code offset < 0}
+   *
+   * @param type The element type
+   * @param size The number of elements
+   * @param data Pointer to device memory containing the column elements
+   * @param null_mask Optional, pointer to device memory containing the null
+   indicator
+   * bitmask
+   * @param null_count Optional, the number of null elements.
+   * @param offset optional, index of the first element
+   * @param children optional, depending on the element type, child columns may
+   * contain additional data
+   */
+  public mutable_column_view(@ByVal data_type type,
+                        @ByVal IntPointer size,
+                        Pointer data,
+                        bitmask_type null_mask/*=nullptr*/,
+                        @ByVal(nullValue = "cudf::size_type(cudf::UNKNOWN_NULL_COUNT)") IntPointer null_count,
+                        @ByVal(nullValue = "cudf::size_type(0)") IntPointer offset,
+                        @StdVector mutable_column_view children/*={}*/) { super((Pointer)null); allocate(type, size, data, null_mask, null_count, offset, children); }
+  private native void allocate(@ByVal data_type type,
+                        @ByVal IntPointer size,
+                        Pointer data,
+                        bitmask_type null_mask/*=nullptr*/,
+                        @ByVal(nullValue = "cudf::size_type(cudf::UNKNOWN_NULL_COUNT)") IntPointer null_count,
+                        @ByVal(nullValue = "cudf::size_type(0)") IntPointer offset,
+                        @StdVector mutable_column_view children/*={}*/);
+  public mutable_column_view(@ByVal data_type type,
+                        @ByVal IntPointer size,
+                        Pointer data) { super((Pointer)null); allocate(type, size, data); }
+  private native void allocate(@ByVal data_type type,
+                        @ByVal IntPointer size,
+                        Pointer data);
+
+  /**
+   * \brief Returns pointer to the base device memory allocation casted to
+   * the specified type.
+   *
+   * \note If {@code offset() == 0}, then {@code head<T>() == data<T>()}
+   *
+   * \note It should be rare to need to access the {@code head<T>()} allocation of a
+   * column, and instead, accessing the elements should be done via {@code data<T>()}.
+   *
+   * \tparam The type to cast to
+   * @return T* Typed pointer to underlying data
+   **/
+
+  /**
+   * \brief Returns the underlying data casted to the specified type, plus the
+   * offset.
+   *
+   * \note If {@code offset() == 0}, then {@code head<T>() == data<T>()}
+   *
+   * \TODO Clarify behavior for variable-width types.
+   *
+   * \tparam T The type to cast to
+   * @return T* Typed pointer to underlying data, including the offset
+   **/
+
+  /**
+   * \brief Return first element (accounting for offset) when underlying data is
+   * casted to the specified type.
+   *
+   * \tparam T The desired type
+   * @return T* Pointer to the first element after casting
+   **/
+
+  /**
+   * \brief Return one past the last element after underlying data is casted to
+   * the specified type.
+   *
+   * \tparam T The desired type
+   * @return T* Pointer to one past the last element after casting
+   **/
+
+  /**
+   * \brief Returns raw pointer to the underlying bitmask allocation.
+   *
+   * \note This function does *not* account for the {@code offset()}.
+   *
+   * \note If {@code null_count() == 0}, this may return {@code nullptr}.
+   */
+  public native @NoException bitmask_type null_mask();
+
+  /**
+   * \brief Set the null count
+   *
+   * @throws cudf::logic_error if {@code new_null_count > 0} and {@code nullable() == false}
+   *
+   * @param new_null_count The new null count
+   **/
+  public native void set_null_count(@ByVal IntPointer new_null_count);
+
+  /**
+   * \brief Returns a reference to the specified child
+   *
+   * @param child_index The index of the desired child
+   * @return mutable_column_view The requested child {@code mutable_column_view}
+   */
+  public native @ByVal @NoException mutable_column_view child(@ByVal IntPointer child_index);
+
+  /**
+   * \brief Returns the number of child columns.
+   **/
+  public native @ByVal @NoException IntPointer num_children();
+
+  /**
+   * \brief Converts a mutable view into an immutable view
+   *
+   * @return column_view An immutable view of the mutable view's elements
+   **/
+  public native @ByVal @Name("operator cudf::column_view") column_view asColumn_view();
 }

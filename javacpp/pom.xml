@@ -30,23 +30,30 @@
             <artifactId>javacpp</artifactId>
             <version>1.5.4</version>
         </dependency>
+        <dependency>
+            <groupId>org.bytedeco</groupId>
+            <artifactId>cuda</artifactId>
+            <version>11.0-8.0-1.5.4</version>
+        </dependency>
     </dependencies>
 
     <build>
         <finalName>${project.artifactId}</finalName>
         <plugins>
             <plugin>
-                <artifactId>maven-resources-plugin</artifactId>
+                <artifactId>maven-clean-plugin</artifactId>
                 <version>3.1.0</version>
-                <executions>
-                    <execution>
-                        <id>javacpp-parser</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>resources</goal>
-                        </goals>
-                    </execution>
-                </executions>
+                <configuration>
+                    <filesets>
+                        <fileset>
+                            <directory>src/gen</directory>
+                            <followSymlinks>false</followSymlinks>
+                        </fileset>
+                        <fileset>
+                            <directory>linux-x86_64</directory>
+                        </fileset>
+                    </filesets>
+                </configuration>
             </plugin>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -77,24 +84,35 @@
                 <groupId>org.bytedeco</groupId>
                 <artifactId>javacpp</artifactId>
                 <version>1.5.4</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.bytedeco</groupId>
+                        <artifactId>cuda-platform</artifactId>
+                        <version>11.0-8.0-1.5.4</version>
+                    </dependency>
+                </dependencies>
                 <configuration>
+                    <properties>linux-x86_64</properties>
                     <propertyKeysAndValues>
                         <property>
                             <name>platform.root</name>
-                            <value>linux</value>
+                            <value>linux-x86_64</value>
                         </property>
                         <property>
                             <name>platform.compiler</name>
-                            <value>cpp14</value>
+                            <value></value>
                         </property>
                         <property>
                             <name>platform.extension</name>
                             <value>x86</value>
                         </property>
                     </propertyKeysAndValues>
-                    <classPath>${project.build.outputDirectory}/</classPath>
+                    <classPath>${project.build.outputDirectory}</classPath>
                     <includePaths>
                         <includePath>/home/jdyer/anaconda3/envs/cudf_dev/include</includePath>
+                        <includePath>/home/jdyer/Development/thrust</includePath>
+                        <includePath>/home/jdyer/Development/cudf/thirdparty/cub</includePath>
+                        <includePath>/usr/local/cuda/include</includePath>
                     </includePaths>
                     <linkPaths>
                         <linkPath>/home/jdyer/anaconda3/envs/cudf_dev/lib</linkPath>
@@ -115,9 +133,8 @@
                             <goal>parse</goal>
                         </goals>
                         <configuration>
-                            <skip>false</skip>
                             <outputDirectory>${project.basedir}/src/gen/java</outputDirectory>
-                            <classOrPackageName>ai.rapids.cudf.presets.Cudf</classOrPackageName>
+                            <classOrPackageName>ai.rapids.cudf.presets.*</classOrPackageName>
                         </configuration>
                     </execution>
                     <execution>
@@ -127,9 +144,11 @@
                             <goal>build</goal>
                         </goals>
                         <configuration>
+                            <generate>true</generate>
+                            <deleteJniFiles>false</deleteJniFiles>
+                            <header>true</header>
                             <outputDirectory>${project.build.directory}/native/</outputDirectory>
-                            <skip>false</skip>
-                            <classOrPackageName>ai.rapids.cudf.presets.**</classOrPackageName>
+                            <classOrPackageName>ai.rapids.cudf.**</classOrPackageName>
                             <copyLibs>true</copyLibs>
                             <copyResources>true</copyResources>
                             <configDirectory>${project.build.directory}/native/META-INF/native-image/</configDirectory>
@@ -162,6 +181,7 @@
                             </archive>
                             <includes>
                                 <include>ai/rapids/cudf/presets/**</include>
+                                <include>ai/rapids/cudf/**</include>
                             </includes>
                         </configuration>
                     </execution>
@@ -187,6 +207,26 @@
                                 </manifestEntries>
                             </archive>
                             <classesDirectory>${project.build.directory}/native</classesDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <id>add-source</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${project.build.directory}/native</source>
+                                <source>${project.basedir}/src/gen/java</source>
+                            </sources>
                         </configuration>
                     </execution>
                 </executions>

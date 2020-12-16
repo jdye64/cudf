@@ -7,31 +7,37 @@ import org.bytedeco.javacpp.*;
 import org.bytedeco.javacpp.annotation.*;
 
 import static org.bytedeco.javacpp.presets.javacpp.*;
+import org.bytedeco.cuda.cudart.*;
+import static org.bytedeco.cuda.global.cudart.*;
+import ai.rapids.thrust.*;
+import static ai.rapids.cudf.global.thrust.*;
+import ai.rapids.rmm.*;
+import static ai.rapids.cudf.global.rmm.*;
 
 import static ai.rapids.cudf.global.cudf.*;
 
-@Name("std::vector<cudf::column>") @Properties(inherit = ai.rapids.cudf.presets.Cudf.class)
-public class ColumnVector extends Pointer {
+@Name("std::vector<std::unique_ptr<cudf::column> >") @Properties(inherit = ai.rapids.cudf.presets.cudf.class)
+public class VectorUniqueColumnPointer extends Pointer {
     static { Loader.load(); }
     /** Pointer cast constructor. Invokes {@link Pointer#Pointer(Pointer)}. */
-    public ColumnVector(Pointer p) { super(p); }
-    public ColumnVector(column value) { this(1); put(0, value); }
-    public ColumnVector(column ... array) { this(array.length); put(array); }
-    public ColumnVector()       { allocate();  }
-    public ColumnVector(long n) { allocate(n); }
+    public VectorUniqueColumnPointer(Pointer p) { super(p); }
+    public VectorUniqueColumnPointer(@Cast({"", "std::unique_ptr<cudf::column>"}) column value) { this(1); put(0, value); }
+    public VectorUniqueColumnPointer(@Cast({"", "std::unique_ptr<cudf::column>"}) column ... array) { this(array.length); put(array); }
+    public VectorUniqueColumnPointer()       { allocate();  }
+    public VectorUniqueColumnPointer(long n) { allocate(n); }
     private native void allocate();
     private native void allocate(@Cast("size_t") long n);
-    public native @Name("operator =") @ByRef ColumnVector put(@ByRef ColumnVector x);
+    public native @Name("operator =") @ByRef VectorUniqueColumnPointer put(@ByRef VectorUniqueColumnPointer x);
 
     public boolean empty() { return size() == 0; }
     public native long size();
     public void clear() { resize(0); }
     public native void resize(@Cast("size_t") long n);
 
-    @Index(function = "at") public native @ByRef column get(@Cast("size_t") long i);
-    public native ColumnVector put(@Cast("size_t") long i, column value);
+    @Index(function = "at") public native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column get(@Cast("size_t") long i);
+    public native VectorUniqueColumnPointer put(@Cast("size_t") long i, column value);
 
-    public native @ByVal Iterator insert(@ByVal Iterator pos, @ByRef column value);
+    public native @ByVal Iterator insert(@ByVal Iterator pos, @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column value);
     public native @ByVal Iterator erase(@ByVal Iterator pos);
     public native @ByVal Iterator begin();
     public native @ByVal Iterator end();
@@ -41,7 +47,7 @@ public class ColumnVector extends Pointer {
 
         public native @Name("operator ++") @ByRef Iterator increment();
         public native @Name("operator ==") boolean equals(@ByRef Iterator it);
-        public native @Name("operator *") @ByRef @Const column get();
+        public native @Name("operator *") @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column get();
     }
 
     public column[] get() {
@@ -61,16 +67,16 @@ public class ColumnVector extends Pointer {
         resize(size - 1);
         return value;
     }
-    public ColumnVector push_back(column value) {
+    public VectorUniqueColumnPointer push_back(column value) {
         long size = size();
         resize(size + 1);
         return put(size, value);
     }
-    public ColumnVector put(column value) {
+    public VectorUniqueColumnPointer put(column value) {
         if (size() != 1) { resize(1); }
         return put(0, value);
     }
-    public ColumnVector put(column ... array) {
+    public VectorUniqueColumnPointer put(column ... array) {
         if (size() != array.length) { resize(array.length); }
         for (int i = 0; i < array.length; i++) {
             put(i, array[i]);
