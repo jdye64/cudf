@@ -11,13 +11,16 @@ import org.bytedeco.cuda.presets.*;
 
 
 @Properties(
-        inherit = rmm.class,
+        inherit = cudart.class,
         names = {"linux"},
         value = {
                 @Platform(
                         compiler = "cpp14",
                         define = {"NO_WINDOWS_H", "UNIQUE_PTR_NAMESPACE std", "SHARED_PTR_NAMESPACE std"},
                         include = {
+                                "rmm/cuda_stream_view.hpp",
+                                "rmm/device_vector.hpp",
+                                "thrust/pair.h",
                                 "cudf/aggregation.hpp",
 //                                "cudf/binaryop.hpp", // TODO: Missing simt/chrono, need to add that just don't want to at the moment
                                 "cudf/concatenate.hpp",
@@ -30,7 +33,7 @@ import org.bytedeco.cuda.presets.*;
 //                                "cudf/ipc.hpp",
 //                                "cudf/join.hpp",
 //                                "cudf/merge.hpp",
-//                                "cudf/null_mask.hpp",
+                                "cudf/null_mask.hpp",
 //                                "cudf/partitioning.hpp",
 //                                "cudf/quantiles.hpp",
 //                                "cudf/reduction.hpp",
@@ -69,13 +72,30 @@ public class cudf implements InfoMapper {
                 .put(new Info("CUDA_HOST_DEVICE_CALLABLE", "CUDA_DEVICE_CALLABLE").cppTypes().annotations())
                 .put(new Info("std::unique_ptr<cudf::column>").annotations("@UniquePtr").valueTypes("@Cast({\"\", \"std::unique_ptr<cudf::column>\"}) column")
                         .pointerTypes("@Cast({\"\", \"std::unique_ptr<cudf::column>*\"}) column"))
-//                .put(new Info("column").cppNames("cudf::column"))
-//                .put(new Info("table_view").cppNames("cudf::detail::table_view"))
-//                .put(new Info("cudf::detail::table_view_base<cudf::column_view>").pointerTypes("TableViewBase"))
+                .put(new Info("std::unique_ptr<column>").annotations("@UniquePtr").valueTypes("@Cast({\"\", \"std::unique_ptr<column>\"}) column")
+                        .pointerTypes("@Cast({\"\", \"std::unique_ptr<column>*\"}) column"))
+
                 .put(new Info("std::vector<std::unique_ptr<cudf::column> >").pointerTypes("VectorUniqueColumnPointer").define())
                 .put(new Info("std::pair<std::unique_ptr<column>,table_view>").pointerTypes("PairColumnTableView").define())
                 .put(new Info("std::unique_ptr<cudf::column>").pointerTypes("column"))
+
+                //.put(new Info("rmm::device_vector<thrust::pair<const char*,cudf::size_type> >").pointerTypes("DeviceVectorPair").define())
                 .put(new Info("rmm::cuda_stream_view").pointerTypes("cuda_stream_view"))
+                .put(new Info("rmm::device_vector<cudf::size_type>").valueTypes("@Cast({\"\", \"rmm::device_vector<cudf::size_type>\"}) offsets")
+                        .pointerTypes("@Cast({\"\", \"rmm::device_vector<cudf::size_type>*\"}) offsets"))
+
+                //.put(new Info("rmm::device_vector<thrust::pair<const char*,cudf::size_type> >").pointerTypes("StringPairDeviceVector").define())
+
+//                .put(new Info("rmm::device_vector<thrust::pair<const char*,cudf::size_type> >").valueTypes("@Cast({\"\", \"rmm::device_vector<thrust::pair<const char*,cudf::size_type> >\"}) sizes")
+//                        .pointerTypes("@Cast({\"\", \"rmm::device_vector<thrust::pair<const char*,cudf::size_type> >\"})"))
+                .put(new Info("rmm::device_vector<char>").valueTypes("@Cast({\"\", \"rmm::device_vector<char>\"}) strings")
+                        .pointerTypes("@Cast({\"\", \"rmm::device_vector<char>\"}) strings"))
+                .put(new Info("rmm::device_vector<string_view>").pointerTypes("string_view")) //TODO: Is this actually correct? Should this maybe contain a rmm::device_vector?
+                .put(new Info("rmm::device_vector<bitmask_type>").valueTypes("@Cast({\"\", \"rmm::device_vector<bitmask_type>\"}) bitmask_type")
+                        .pointerTypes("@Cast({\"\", \"rmm::device_vector<bitmask_type>\"}) bitmask_type"))
+
+                //.put(new Info("cudf::bitmask_type", "bitmask_type").pointerTypes("IntPointer").define())
+                .put(new Info("bitmask_type").pointerTypes("IntPointer"))
                 .put(new Info("cudf::size_type", "size_type").pointerTypes("IntPointer").define());    //TODO: Make sure IntPointer is the correct type here. Looking for int32_t from libcudf
 
     }
