@@ -11,10 +11,6 @@ import org.bytedeco.javacpp.annotation.*;
 import static org.bytedeco.javacpp.presets.javacpp.*;
 import org.bytedeco.cuda.cudart.*;
 import static org.bytedeco.cuda.global.cudart.*;
-import ai.rapids.thrust.*;
-import static ai.rapids.cudf.global.thrust.*;
-import ai.rapids.rmm.*;
-import static ai.rapids.cudf.global.rmm.*;
 
 public class cudf extends ai.rapids.cudf.presets.cudf {
     static { Loader.load(); }
@@ -23,6 +19,305 @@ public class cudf extends ai.rapids.cudf.presets.cudf {
 
 
 // Targeting ../PairColumnTableView.java
+
+
+// Parsed from rmm/cuda_stream_view.hpp
+
+/*
+ * Copyright (c) 2020, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// #pragma once
+
+// #include <rmm/detail/error.hpp>
+
+// #include <cuda_runtime_api.h>
+
+// #include <atomic>
+// #include <cstddef>
+// #include <cstdint>
+// Targeting ../cuda_stream_view.java
+
+
+
+/**
+ * \brief Static cuda_stream_view of the default stream (stream 0), for convenience
+ */
+@Namespace("rmm") @MemberGetter public static native @Const @ByRef cuda_stream_view cuda_stream_default();
+
+/**
+ * \brief Static cuda_stream_view of cudaStreamLegacy, for convenience
+ */
+@Namespace("rmm") public static native @ByRef cuda_stream_view cuda_stream_legacy(); public static native void cuda_stream_legacy(cuda_stream_view setter);
+
+/**
+ * \brief Static cuda_stream_view of cudaStreamPerThread, for convenience
+ */
+@Namespace("rmm") public static native @ByRef cuda_stream_view cuda_stream_per_thread(); public static native void cuda_stream_per_thread(cuda_stream_view setter);
+
+/**
+ * \brief Equality comparison operator for streams
+ *
+ * @param lhs The first stream view to compare
+ * @param rhs The second stream view to compare
+ * @return true if equal, false if unequal
+ */
+@Namespace("rmm") public static native @Cast("bool") @Name("operator ==") boolean equals(@ByVal cuda_stream_view lhs, @ByVal cuda_stream_view rhs);
+
+/**
+ * \brief Inequality comparison operator for streams
+ *
+ * @param lhs The first stream view to compare
+ * @param rhs The second stream view to compare
+ * @return true if unequal, false if equal
+ */
+@Namespace("rmm") public static native @Cast("bool") @Name("operator !=") boolean notEquals(@ByVal cuda_stream_view lhs, @ByVal cuda_stream_view rhs);
+
+/**
+ * \brief Output stream operator for printing / logging streams
+ *
+ * @param os The output ostream
+ * @param sv The cuda_stream_view to output
+ * @return std::ostream& The output ostream
+ */
+@Namespace("rmm") public static native @Cast("std::ostream*") @ByRef @Name("operator <<") Pointer shiftLeft(@Cast("std::ostream*") @ByRef Pointer os, @ByVal cuda_stream_view sv);
+
+  // namespace rmm
+
+
+// Parsed from rmm/device_vector.hpp
+
+/*
+ * Copyright (c) 2020, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// #pragma once
+
+// #include <rmm/mr/device/thrust_allocator_adaptor.hpp>
+
+// #include <thrust/device_vector.h>
+/**
+ * \brief Alias for a thrust::device_vector that uses RMM for memory allocation.
+ *
+ */
+
+  // namespace rmm
+
+
+// Parsed from thrust/pair.h
+
+/*
+ *  Copyright 2008-2013 NVIDIA Corporation
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
+
+/** \file pair.h
+ *  \brief A type encapsulating a heterogeneous pair of elements
+ */
+
+// #pragma once
+
+// #include <thrust/detail/config.h>
+// #include <utility>
+
+/** \addtogroup utility
+ *  \{
+ */
+
+/** \addtogroup pair
+ *  \{
+ */
+
+/** \p pair is a generic data structure encapsulating a heterogeneous
+ *  pair of values.
+ *
+ *  \tparam T1 The type of \p pair's first object type.  There are no
+ *          requirements on the type of \p T1. <tt>T1</tt>'s type is
+ *          provided by <tt>pair::first_type</tt>.
+ *
+ *  \tparam T2 The type of \p pair's second object type.  There are no
+ *          requirements on the type of \p T2. <tt>T2</tt>'s type is
+ *          provided by <tt>pair::second_type</tt>.
+ */ // end pair
+
+
+/** This operator tests two \p pairs for equality.
+ *
+ *  @param x The first \p pair to compare.
+ *  @param y The second \p pair to compare.
+ *  @return \c true if and only if <tt>x.first == y.first && x.second == y.second</tt>.
+ *  
+ *  \tparam T1 is a model of <a href="http://www.sgi.com/tech/stl/EqualityComparable.html">Equality Comparable</a>.
+ *  \tparam T2 is a model of <a href="http://www.sgi.com/tech/stl/EqualityComparable.html">Equality Comparable</a>.
+ */
+
+
+/** This operator tests two pairs for ascending ordering.
+ *
+ *  @param x The first \p pair to compare.
+ *  @param y The second \p pair to compare.
+ *  @return \c true if and only if <tt>x.first < y.first || (!(y.first < x.first) && x.second < y.second)</tt>.
+ *
+ *  \tparam T1 is a model of <a href="http://www.sgi.com/tech/stl/LessThanComparable.html">LessThan Comparable</a>.
+ *  \tparam T2 is a model of <a href="http://www.sgi.com/tech/stl/LessThanComparable.html">LessThan Comparable</a>.
+ */
+
+
+/** This operator tests two pairs for inequality.
+ *
+ *  @param x The first \p pair to compare.
+ *  @param y The second \p pair to compare.
+ *  @return \c true if and only if <tt>!(x == y)</tt>.
+ *
+ *  \tparam T1 is a model of <a href="http://www.sgi.com/tech/stl/EqualityComparable.html">Equality Comparable</a>.
+ *  \tparam T2 is a model of <a href="http://www.sgi.com/tech/stl/EqualityComparable.html">Equality Comparable</a>.
+ */
+
+
+/** This operator tests two pairs for descending ordering.
+ *
+ *  @param x The first \p pair to compare.
+ *  @param y The second \p pair to compare.
+ *  @return \c true if and only if <tt>y < x</tt>.
+ *
+ *  \tparam T1 is a model of <a href="http://www.sgi.com/tech/stl/LessThanComparable.html">LessThan Comparable</a>.
+ *  \tparam T2 is a model of <a href="http://www.sgi.com/tech/stl/LessThanComparable.html">LessThan Comparable</a>.
+ */
+
+
+/** This operator tests two pairs for ascending ordering or equivalence.
+ *
+ *  @param x The first \p pair to compare.
+ *  @param y The second \p pair to compare.
+ *  @return \c true if and only if <tt>!(y < x)</tt>.
+ *
+ *  \tparam T1 is a model of <a href="http://www.sgi.com/tech/stl/LessThanComparable.html">LessThan Comparable</a>.
+ *  \tparam T2 is a model of <a href="http://www.sgi.com/tech/stl/LessThanComparable.html">LessThan Comparable</a>.
+ */
+
+
+/** This operator tests two pairs for descending ordering or equivalence.
+ *
+ *  @param x The first \p pair to compare.
+ *  @param y The second \p pair to compare.
+ *  @return \c true if and only if <tt>!(x < y)</tt>.
+ *
+ *  \tparam T1 is a model of <a href="http://www.sgi.com/tech/stl/LessThanComparable.html">LessThan Comparable</a>.
+ *  \tparam T2 is a model of <a href="http://www.sgi.com/tech/stl/LessThanComparable.html">LessThan Comparable</a>.
+ */
+
+
+/** \p swap swaps the contents of two <tt>pair</tt>s.
+ *
+ *  @param x The first \p pair to swap.
+ *  @param y The second \p pair to swap.
+ */
+
+
+/** This convenience function creates a \p pair from two objects.
+ *
+ *  @param x The first object to copy from.
+ *  @param y The second object to copy from.
+ *  @return A newly-constructed \p pair copied from \p a and \p b.
+ *
+ *  \tparam T1 There are no requirements on the type of \p T1.
+ *  \tparam T2 There are no requirements on the type of \p T2.
+ */
+
+
+/** This convenience metafunction is included for compatibility with
+ *  \p tuple. It returns either the type of a \p pair's
+ *  \c first_type or \c second_type in its nested type, \c type.
+ *
+ *  \tparam N This parameter selects the member of interest.
+ *  \tparam T A \c pair type of interest.
+ */
+
+
+/** This convenience metafunction is included for compatibility with
+ *  \p tuple. It returns \c 2, the number of elements of a \p pair,
+ *  in its nested data member, \c value.
+ *
+ *  \tparam Pair A \c pair type of interest.
+ */
+
+
+/** This convenience function returns a reference to either the first or
+ *  second member of a \p pair.
+ *
+ *  @param p The \p pair of interest.
+ *  @return \c p.first or \c p.second, depending on the template
+ *          parameter.
+ *
+ *  \tparam N This parameter selects the member of interest.
+ */
+// XXX comment out these prototypes as a WAR to a problem on MSVC 2005
+//template<unsigned int N, typename T1, typename T2>
+//  inline __host__ __device__
+//    typename tuple_element<N, pair<T1,T2> >::type &
+//      get(pair<T1,T2> &p);
+
+
+/** This convenience function returns a const reference to either the
+ *  first or second member of a \p pair.
+ *
+ *  @param p The \p pair of interest.
+ *  @return \c p.first or \c p.second, depending on the template
+ *          parameter.
+ *
+ *  \tparam i This parameter selects the member of interest.
+ */
+// XXX comment out these prototypes as a WAR to a problem on MSVC 2005
+//template<int N, typename T1, typename T2>
+//  inline __host__ __device__
+//    const typename tuple_element<N, pair<T1,T2> >::type &
+//      get(const pair<T1,T2> &p);
+
+/** \} // pair
+ */
+
+/** \} // utility
+ */
+
+ // end thrust
+
+// #include <thrust/detail/pair.inl>
+
 
 
 // Parsed from cudf/aggregation.hpp
@@ -59,6 +354,10 @@ public class cudf extends ai.rapids.cudf.presets.cudf {
  * \note Not all aggregation APIs support all aggregation operations. See
  * individual function documentation to see what aggregations are supported.
  */
+// Targeting ../aggregation_finalizer.java
+
+
+
 // Targeting ../aggregation.java
 
 
@@ -277,10 +576,10 @@ public class cudf extends ai.rapids.cudf.presets.cudf {
  * @return Unique pointer to a single table having all the rows from the
  * elements of {@code columns_to_concat} respectively in the same order.
  */
-@Namespace("cudf") public static native @UniquePtr column concatenate(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<column>"}) column concatenate(
   @StdVector column_view columns_to_concat,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column concatenate(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<column>"}) column concatenate(
   @StdVector column_view columns_to_concat);
 
 /**
@@ -619,13 +918,13 @@ public class cudf extends ai.rapids.cudf.presets.cudf {
  * @param mr Device memory resource used to allocate the returned column's device memory
  * @return The result output column
  */
-@Namespace("cudf") public static native @UniquePtr @Name("fill") column _fill(
+@Namespace("cudf") public static native @UniquePtr @Name("fill") @Cast({"", "std::unique_ptr<column>"}) column _fill(
   @Const @ByRef column_view input,
   @ByVal IntPointer begin,
   @ByVal IntPointer end,
   @Const @ByRef scalar value,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr @Name("fill") column _fill(
+@Namespace("cudf") public static native @UniquePtr @Name("fill") @Cast({"", "std::unique_ptr<column>"}) column _fill(
   @Const @ByRef column_view input,
   @ByVal IntPointer begin,
   @ByVal IntPointer end,
@@ -721,12 +1020,12 @@ public class cudf extends ai.rapids.cudf.presets.cudf {
  * @param mr Device memory resource used to allocate the returned column's device memory
  * @return std::unique_ptr<column> The result table containing the sequence
  **/
-@Namespace("cudf") public static native @UniquePtr column sequence(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<column>"}) column sequence(
   @ByVal IntPointer size,
   @Const @ByRef scalar init,
   @Const @ByRef scalar step,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column sequence(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<column>"}) column sequence(
   @ByVal IntPointer size,
   @Const @ByRef scalar init,
   @Const @ByRef scalar step);
@@ -751,11 +1050,11 @@ public class cudf extends ai.rapids.cudf.presets.cudf {
  * @param mr Device memory resource used to allocate the returned column's device memory
  * @return std::unique_ptr<column> The result table containing the sequence
  **/
-@Namespace("cudf") public static native @UniquePtr column sequence(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<column>"}) column sequence(
   @ByVal IntPointer size,
   @Const @ByRef scalar init,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column sequence(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<column>"}) column sequence(
   @ByVal IntPointer size,
   @Const @ByRef scalar init);
 
@@ -800,23 +1099,264 @@ public class cudf extends ai.rapids.cudf.presets.cudf {
  *
  * @return A column where each row is the hash of a column from the input
  */
-@Namespace("cudf") public static native @UniquePtr column hash(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<column>"}) column hash(
   @Const @ByRef table_view input,
   @ByVal(nullValue = "hash_id::HASH_MURMUR3") hash_id hash_function,
   @Cast("uint32_t*") @StdVector IntPointer initial_hash/*={}*/,
+  @Cast("uint32_t") int seed/*=0*/,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column hash(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<column>"}) column hash(
   @Const @ByRef table_view input);
-@Namespace("cudf") public static native @UniquePtr column hash(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<column>"}) column hash(
   @Const @ByRef table_view input,
   @ByVal(nullValue = "hash_id::HASH_MURMUR3") hash_id hash_function,
   @Cast("uint32_t*") @StdVector IntBuffer initial_hash/*={}*/,
+  @Cast("uint32_t") int seed/*=0*/,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
-@Namespace("cudf") public static native @UniquePtr column hash(
+@Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<column>"}) column hash(
   @Const @ByRef table_view input,
   @ByVal(nullValue = "hash_id::HASH_MURMUR3") hash_id hash_function,
   @Cast("uint32_t*") @StdVector int[] initial_hash/*={}*/,
+  @Cast("uint32_t") int seed/*=0*/,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+
+/** \} */  // end of group
+  // namespace cudf
+
+
+// Parsed from cudf/null_mask.hpp
+
+/*
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+// #pragma once
+
+// #include <cudf/types.hpp>
+
+// #include <rmm/device_buffer.hpp>
+
+// #include <vector>
+
+/**
+ * \addtogroup column_nullmask
+ * \{
+ * \file
+ * \brief APIs for managing validity bitmasks
+ */
+
+/**
+ * \brief Returns the null count for a null mask of the specified {@code state}
+ * representing {@code size} elements.
+ *
+ * @param state The state of the null mask
+ * @param size The number of elements represented by the mask
+ * @return size_type The count of null elements
+ **/
+@Namespace("cudf") public static native @ByVal IntPointer state_null_count(@ByVal mask_state state, @ByVal IntPointer size);
+
+/**
+ * \brief Computes the required bytes necessary to represent the specified
+ * number of bits with a given padding boundary.
+ *
+ * \note The Arrow specification for the null bitmask requires a 64B padding
+ * boundary.
+ *
+ * @param number_of_bits The number of bits that need to be represented
+ * @param padding_boundary The value returned will be rounded up to a multiple
+ * of this value
+ * @return std::size_t The necessary number of bytes
+ **/
+@Namespace("cudf") public static native @ByVal @Cast("std::size_t*") SizeTPointer bitmask_allocation_size_bytes(@ByVal IntPointer number_of_bits,
+                                          @ByVal(nullValue = "std::size_t(64)") @Cast("std::size_t*") SizeTPointer padding_boundary);
+@Namespace("cudf") public static native @ByVal @Cast("std::size_t*") SizeTPointer bitmask_allocation_size_bytes(@ByVal IntPointer number_of_bits);
+
+/**
+ * \brief Returns the number of {@code bitmask_type} words required to represent the
+ * specified number of bits.
+ *
+ * Unlike {@code bitmask_allocation_size_bytes}, which returns the number of *bytes*
+ * needed for a bitmask allocation (including padding), this function returns
+ * the *actual* number {@code bitmask_type} elements necessary to represent
+ * {@code number_of_bits}. This is useful when one wishes to process all of the bits
+ * in a bitmask and ignore the padding/slack bits.
+ *
+ * @param number_of_bits The number of bits that need to be represented
+ * @return size_type The necessary number of {@code bitmask_type} elements
+ */
+@Namespace("cudf") public static native @ByVal IntPointer num_bitmask_words(@ByVal IntPointer number_of_bits);
+
+/**
+ * \brief Creates a {@code device_buffer} for use as a null value indicator bitmask of
+ * a {@code column}.
+ *
+ * @param size The number of elements to be represented by the mask
+ * @param state The desired state of the mask
+ * @param mr Device memory resource used to allocate the returned device_buffer.
+ * @return rmm::device_buffer A {@code device_buffer} for use as a null bitmask
+ * satisfying the desired size and state
+ **/
+@Namespace("cudf") public static native @ByVal device_buffer create_null_mask(
+  @ByVal IntPointer size,
+  @ByVal mask_state state,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @ByVal device_buffer create_null_mask(
+  @ByVal IntPointer size,
+  @ByVal mask_state state);
+
+/**
+ * \brief Sets a pre-allocated bitmask buffer to a given state in the range
+ *  {@code [begin_bit, end_bit)}
+ *
+ * Sets {@code [begin_bit, end_bit)} bits of bitmask to valid if {@code valid==true}
+ * or null otherwise.
+ *
+ * @param bitmask Pointer to bitmask (e.g. returned by {@code column_view.null_mask()})
+ * @param begin_bit Index of the first bit to set (inclusive)
+ * @param end_bit Index of the last bit to set (exclusive)
+ * @param valid If true set all entries to valid; otherwise, set all to null.
+ **/
+@Namespace("cudf") public static native void set_null_mask(IntPointer bitmask, @ByVal IntPointer begin_bit, @ByVal IntPointer end_bit, @Cast("bool") boolean valid);
+
+/**
+ * \brief Given a bitmask, counts the number of set (1) bits in the range
+ * {@code [start, stop)}
+ *
+ * Returns {@code 0} if {@code bitmask == nullptr}.
+ *
+ * @throws cudf::logic_error if {@code start > stop}
+ * @throws cudf::logic_error if {@code start < 0}
+ *
+ * @param bitmask Bitmask residing in device memory whose bits will be counted
+ * @param start_bit Index of the first bit to count (inclusive)
+ * @param stop_bit Index of the last bit to count (exclusive)
+ * @return The number of non-zero bits in the specified range
+ **/
+@Namespace("cudf") public static native @ByVal IntPointer count_set_bits(@Const IntPointer bitmask, @ByVal IntPointer start, @ByVal IntPointer stop);
+
+/**
+ * \brief Given a bitmask, counts the number of unset (0) bits  in the range
+ *{@code [start, stop)}.
+ *
+ * Returns {@code 0} if {@code bitmask == nullptr}.
+ *
+ * @throws cudf::logic_error if {@code start > stop}
+ * @throws cudf::logic_error if {@code start < 0}
+ *
+ * @param bitmask Bitmask residing in device memory whose bits will be counted
+ * @param start_bit Index of the first bit to count (inclusive)
+ * @param stop_bit Index of the last bit to count (exclusive)
+ * @return The number of zero bits in the specified range
+ **/
+@Namespace("cudf") public static native @ByVal IntPointer count_unset_bits(@Const IntPointer bitmask, @ByVal IntPointer start, @ByVal IntPointer stop);
+
+/**
+ * \brief Given a bitmask, counts the number of set (1) bits in every range
+ * {@code [indices[2*i], indices[(2*i)+1])} (where 0 <= i < indices.size() / 2).
+ *
+ * Returns an empty vector if {@code bitmask == nullptr}.
+ * @throws cudf::logic_error if {@code indices.size() % 2 != 0}
+ * @throws cudf::logic_error if {@code indices[2*i] < 0 or
+ * indices[2*i] > indices[(2*i)+1]}
+ *
+ * @param bitmask [in] Bitmask residing in device memory whose bits will be
+ * counted
+ * @param indices [in] A vector of indices used to specify ranges to count the
+ * number of set bits
+ * @return std::vector<size_type> A vector storing the number of non-zero bits
+ * in the specified ranges
+ */
+@Namespace("cudf") public static native @StdVector IntPointer segmented_count_set_bits(@Const IntPointer bitmask,
+                                                @StdVector IntPointer indices);
+
+/**
+ * \brief Given a bitmask, counts the number of unset (0) bits in every range
+ * {@code [indices[2*i], indices[(2*i)+1])} (where 0 <= i < indices.size() / 2).
+ *
+ * Returns an empty vector if {@code bitmask == nullptr}.
+ * @throws cudf::logic_error if {@code indices.size() % 2 != 0}
+ * @throws cudf::logic_error if {@code indices[2*i] < 0 or
+ * indices[2*i] > indices[(2*i)+1]}
+ *
+ * @param bitmask [in] Bitmask residing in device memory whose bits will be
+ * counted
+ * @param indices [in] A vector of indices used to specify ranges to count the
+ * number of unset bits
+ * @return std::vector<size_type> A vector storing the number of zero bits in
+ * the specified ranges
+ */
+@Namespace("cudf") public static native @StdVector IntPointer segmented_count_unset_bits(@Const IntPointer bitmask,
+                                                  @StdVector IntPointer indices);
+
+/**
+ * \brief Creates a {@code device_buffer} from a slice of bitmask defined by a range
+ * of indices {@code [begin_bit, end_bit)}.
+ *
+ * Returns empty {@code device_buffer} if {@code bitmask == nullptr}.
+ *
+ * @throws cudf::logic_error if {@code begin_bit > end_bit}
+ * @throws cudf::logic_error if {@code begin_bit < 0}
+ *
+ * @param mask Bitmask residing in device memory whose bits will be copied
+ * @param begin_bit Index of the first bit to be copied (inclusive)
+ * @param end_bit Index of the last bit to be copied (exclusive)
+ * @param mr Device memory resource used to allocate the returned device_buffer
+ * @return rmm::device_buffer A {@code device_buffer} containing the bits
+ * {@code [begin_bit, end_bit)} from {@code mask}.
+ **/
+@Namespace("cudf") public static native @ByVal device_buffer copy_bitmask(
+  @Const IntPointer mask,
+  @ByVal IntPointer begin_bit,
+  @ByVal IntPointer end_bit,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @ByVal device_buffer copy_bitmask(
+  @Const IntPointer mask,
+  @ByVal IntPointer begin_bit,
+  @ByVal IntPointer end_bit);
+
+/**
+ * \brief Copies {@code view}'s bitmask from the bits
+ * {@code [view.offset(), view.offset() + view.size())} into a {@code device_buffer}
+ *
+ * Returns empty {@code device_buffer} if the column is not nullable
+ *
+ * @param view Column view whose bitmask needs to be copied
+ * @param mr Device memory resource used to allocate the returned device_buffer
+ * @return rmm::device_buffer A {@code device_buffer} containing the bits
+ * {@code [view.offset(), view.offset() + view.size())} from {@code view}'s bitmask.
+ **/
+@Namespace("cudf") public static native @ByVal device_buffer copy_bitmask(
+  @Const @ByRef column_view view,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @ByVal device_buffer copy_bitmask(
+  @Const @ByRef column_view view);
+
+/**
+ * \brief Returns a bitwise AND of the bitmasks of columns of a table
+ *
+ * If any of the columns isn't nullable, it is considered all valid.
+ * If no column in the table is nullable, an empty bitmask is returned.
+ *
+ * @param view The table of columns
+ * @param mr Device memory resource used to allocate the returned device_buffer
+ * @return rmm::device_buffer Output bitmask
+ */
+@Namespace("cudf") public static native @ByVal device_buffer bitmask_and(
+  @Const @ByRef table_view view,
+  device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
+@Namespace("cudf") public static native @ByVal device_buffer bitmask_and(
+  @Const @ByRef table_view view);
 
 /** \} */  // end of group
   // namespace cudf
@@ -940,8 +1480,8 @@ public class cudf extends ai.rapids.cudf.presets.cudf {
 // #include <cudf/types.hpp>
 // #include <cudf/utilities/traits.hpp>
 
-// #include <rmm/thrust_rmm_allocator.h>
 // #include <rmm/cuda_stream_view.hpp>
+// #include <rmm/device_vector.hpp>
 /**
  * \addtogroup column_factories
  * \{
@@ -1236,12 +1776,12 @@ public class cudf extends ai.rapids.cudf.presets.cudf {
  * columns' device memory.
  */
 @Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
-  @Const @ByRef rmm::device_vector<string_view> string_views,
+  @Const @ByRef string_view string_views,
   @Const @ByVal string_view null_placeholder,
   @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
 @Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
-  @Const @ByRef rmm::device_vector<string_view> string_views,
+  @Const @ByRef string_view string_views,
   @Const @ByVal string_view null_placeholder);
 
 /**
@@ -1277,15 +1817,15 @@ public class cudf extends ai.rapids.cudf.presets.cudf {
  * columns' device memory.
  */
 @Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
-  @Const @ByRef rmm::device_vector<char> strings,
-  @Const @ByRef rmm::device_vector<cudf::size_type> offsets,
-  @Const @ByRef(nullValue = "rmm::device_vector<bitmask_type>({})") rmm::device_vector<bitmask_type> null_mask,
+  @Cast({"", "rmm::device_vector<char>"}) strings strings,
+  @Cast({"", "rmm::device_vector<cudf::size_type>"}) offsets offsets,
+  @Cast({"", "rmm::device_vector<bitmask_type>"}) bitmask_type null_mask/*={}*/,
   @ByVal(nullValue = "cudf::size_type(cudf::UNKNOWN_NULL_COUNT)") IntPointer null_count,
   @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
 @Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
-  @Const @ByRef rmm::device_vector<char> strings,
-  @Const @ByRef rmm::device_vector<cudf::size_type> offsets);
+  @Cast({"", "rmm::device_vector<char>"}) strings strings,
+  @Cast({"", "rmm::device_vector<cudf::size_type>"}) offsets offsets);
 
 /**
  * \brief Construct STRING type column given a host vector of chars
@@ -1322,7 +1862,7 @@ public class cudf extends ai.rapids.cudf.presets.cudf {
 @Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
   @Cast("char*") @StdVector BytePointer strings,
   @StdVector IntPointer offsets,
-  @StdVector bitmask_type null_mask/*={}*/,
+  @StdVector IntPointer null_mask/*={}*/,
   @ByVal(nullValue = "cudf::size_type(cudf::UNKNOWN_NULL_COUNT)") IntPointer null_count,
   @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
@@ -1332,7 +1872,7 @@ public class cudf extends ai.rapids.cudf.presets.cudf {
 @Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
   @Cast("char*") @StdVector ByteBuffer strings,
   @StdVector IntPointer offsets,
-  @StdVector bitmask_type null_mask/*={}*/,
+  @StdVector IntPointer null_mask/*={}*/,
   @ByVal(nullValue = "cudf::size_type(cudf::UNKNOWN_NULL_COUNT)") IntPointer null_count,
   @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
@@ -1342,7 +1882,7 @@ public class cudf extends ai.rapids.cudf.presets.cudf {
 @Namespace("cudf") public static native @UniquePtr @Cast({"", "std::unique_ptr<cudf::column>"}) column make_strings_column(
   @Cast("char*") @StdVector byte[] strings,
   @StdVector IntPointer offsets,
-  @StdVector bitmask_type null_mask/*={}*/,
+  @StdVector IntPointer null_mask/*={}*/,
   @ByVal(nullValue = "cudf::size_type(cudf::UNKNOWN_NULL_COUNT)") IntPointer null_count,
   @ByVal(nullValue = "rmm::cuda_stream_view(rmm::cuda_stream_default)") cuda_stream_view stream,
   device_memory_resource mr/*=rmm::mr::get_current_device_resource()*/);
@@ -2004,7 +2544,9 @@ public class cudf extends ai.rapids.cudf.presets.cudf {
   /** Murmur3 hash function */
   HASH_MURMUR3(1),
   /** MD5 hash function */
-  HASH_MD5(2);
+  HASH_MD5(2),
+  /** Serial Murmur3 hash function */
+  HASH_SERIAL_MURMUR3(3);
 
     public final int value;
     private hash_id(int v) { this.value = v; }

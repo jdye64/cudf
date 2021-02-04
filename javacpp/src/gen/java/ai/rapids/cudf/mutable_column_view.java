@@ -9,10 +9,6 @@ import org.bytedeco.javacpp.annotation.*;
 import static org.bytedeco.javacpp.presets.javacpp.*;
 import org.bytedeco.cuda.cudart.*;
 import static org.bytedeco.cuda.global.cudart.*;
-import ai.rapids.thrust.*;
-import static ai.rapids.cudf.global.thrust.*;
-import ai.rapids.rmm.*;
-import static ai.rapids.cudf.global.rmm.*;
 
 import static ai.rapids.cudf.global.cudf.*;
                                        // namespace cudf
@@ -92,14 +88,14 @@ public class mutable_column_view extends column_view_base {
   public mutable_column_view(@ByVal data_type type,
                         @ByVal IntPointer size,
                         Pointer data,
-                        bitmask_type null_mask/*=nullptr*/,
+                        IntPointer null_mask/*=nullptr*/,
                         @ByVal(nullValue = "cudf::size_type(cudf::UNKNOWN_NULL_COUNT)") IntPointer null_count,
                         @ByVal(nullValue = "cudf::size_type(0)") IntPointer offset,
                         @StdVector mutable_column_view children/*={}*/) { super((Pointer)null); allocate(type, size, data, null_mask, null_count, offset, children); }
   private native void allocate(@ByVal data_type type,
                         @ByVal IntPointer size,
                         Pointer data,
-                        bitmask_type null_mask/*=nullptr*/,
+                        IntPointer null_mask/*=nullptr*/,
                         @ByVal(nullValue = "cudf::size_type(cudf::UNKNOWN_NULL_COUNT)") IntPointer null_count,
                         @ByVal(nullValue = "cudf::size_type(0)") IntPointer offset,
                         @StdVector mutable_column_view children/*={}*/);
@@ -158,7 +154,7 @@ public class mutable_column_view extends column_view_base {
    *
    * \note If {@code null_count() == 0}, this may return {@code nullptr}.
    */
-  public native @NoException bitmask_type null_mask();
+  public native @NoException IntPointer null_mask();
 
   /**
    * \brief Set the null count
@@ -181,6 +177,16 @@ public class mutable_column_view extends column_view_base {
    * \brief Returns the number of child columns.
    **/
   public native @ByVal @NoException IntPointer num_children();
+
+  /**
+   * \brief Returns iterator to the beginning of the ordered sequence of child column-views.
+   */
+  public native @ByVal @NoException auto child_begin();
+
+  /**
+   * \brief Returns iterator to the end of the ordered sequence of child column-views.
+   */
+  public native @ByVal @NoException auto child_end();
 
   /**
    * \brief Converts a mutable view into an immutable view

@@ -9,10 +9,6 @@ import org.bytedeco.javacpp.annotation.*;
 import static org.bytedeco.javacpp.presets.javacpp.*;
 import org.bytedeco.cuda.cudart.*;
 import static org.bytedeco.cuda.global.cudart.*;
-import ai.rapids.thrust.*;
-import static ai.rapids.cudf.global.thrust.*;
-import ai.rapids.rmm.*;
-import static ai.rapids.cudf.global.rmm.*;
 
 import static ai.rapids.cudf.global.cudf.*;
 
@@ -21,16 +17,16 @@ public class PairColumnTableView extends Pointer {
     static { Loader.load(); }
     /** Pointer cast constructor. Invokes {@link Pointer#Pointer(Pointer)}. */
     public PairColumnTableView(Pointer p) { super(p); }
-    public PairColumnTableView(std::unique_ptr<column> firstValue, table_view secondValue) { this(); put(firstValue, secondValue); }
+    public PairColumnTableView(@Cast({"", "std::unique_ptr<column>"}) column firstValue, table_view secondValue) { this(); put(firstValue, secondValue); }
     public PairColumnTableView()       { allocate();  }
     private native void allocate();
     public native @Name("operator =") @ByRef PairColumnTableView put(@ByRef PairColumnTableView x);
 
 
-    @MemberGetter public native @ByRef std::unique_ptr<column> first(); public native PairColumnTableView first(std::unique_ptr<column> first);
+    @MemberGetter public native @UniquePtr @Cast({"", "std::unique_ptr<column>"}) column first(); public native PairColumnTableView first(column first);
     @MemberGetter public native @ByRef table_view second();  public native PairColumnTableView second(table_view second);
 
-    public PairColumnTableView put(std::unique_ptr<column> firstValue, table_view secondValue) {
+    public PairColumnTableView put(column firstValue, table_view secondValue) {
         first(firstValue);
         second(secondValue);
         return this;

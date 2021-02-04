@@ -9,10 +9,6 @@ import org.bytedeco.javacpp.annotation.*;
 import static org.bytedeco.javacpp.presets.javacpp.*;
 import org.bytedeco.cuda.cudart.*;
 import static org.bytedeco.cuda.global.cudart.*;
-import ai.rapids.thrust.*;
-import static ai.rapids.cudf.global.thrust.*;
-import ai.rapids.rmm.*;
-import static ai.rapids.cudf.global.rmm.*;
 
 import static ai.rapids.cudf.global.cudf.*;
 
@@ -164,7 +160,7 @@ public class column_view_base extends Pointer {
    *
    * \note If {@code null_count() == 0}, this may return {@code nullptr}.
    **/
-  public native @Const @NoException bitmask_type null_mask();
+  public native @Const @NoException IntPointer null_mask();
 
   /**
    * \brief Returns the index of the first element relative to the base memory

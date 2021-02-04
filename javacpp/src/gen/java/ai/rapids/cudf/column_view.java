@@ -9,10 +9,6 @@ import org.bytedeco.javacpp.annotation.*;
 import static org.bytedeco.javacpp.presets.javacpp.*;
 import org.bytedeco.cuda.cudart.*;
 import static org.bytedeco.cuda.global.cudart.*;
-import ai.rapids.thrust.*;
-import static ai.rapids.cudf.global.thrust.*;
-import ai.rapids.rmm.*;
-import static ai.rapids.cudf.global.rmm.*;
 
 import static ai.rapids.cudf.global.cudf.*;
   // namespace detail
@@ -101,14 +97,14 @@ public class column_view extends column_view_base {
   public column_view(@ByVal data_type type,
                 @ByVal IntPointer size,
                 @Const Pointer data,
-                @Const bitmask_type null_mask/*=nullptr*/,
+                @Const IntPointer null_mask/*=nullptr*/,
                 @ByVal(nullValue = "cudf::size_type(UNKNOWN_NULL_COUNT)") IntPointer null_count,
                 @ByVal(nullValue = "cudf::size_type(0)") IntPointer offset,
                 @StdVector column_view children/*={}*/) { super((Pointer)null); allocate(type, size, data, null_mask, null_count, offset, children); }
   private native void allocate(@ByVal data_type type,
                 @ByVal IntPointer size,
                 @Const Pointer data,
-                @Const bitmask_type null_mask/*=nullptr*/,
+                @Const IntPointer null_mask/*=nullptr*/,
                 @ByVal(nullValue = "cudf::size_type(UNKNOWN_NULL_COUNT)") IntPointer null_count,
                 @ByVal(nullValue = "cudf::size_type(0)") IntPointer offset,
                 @StdVector column_view children/*={}*/);

@@ -9,19 +9,9 @@ import org.bytedeco.javacpp.annotation.*;
 import static org.bytedeco.javacpp.presets.javacpp.*;
 import org.bytedeco.cuda.cudart.*;
 import static org.bytedeco.cuda.global.cudart.*;
-import ai.rapids.thrust.*;
-import static ai.rapids.cudf.global.thrust.*;
-import ai.rapids.rmm.*;
-import static ai.rapids.cudf.global.rmm.*;
 
 import static ai.rapids.cudf.global.cudf.*;
-
-/**
- * \addtogroup aggregation_factories
- * \{
- * \file
- */
-
+  // namespace detail
 /**
  * \brief Base class for specifying the desired aggregation in an
  * {@code aggregation_request}.
@@ -83,9 +73,9 @@ public class aggregation extends Pointer {
     LEAD(20),
     /** window function, accesses row at specified offset preceding current row */
     LAG(21),
-    /** PTX UDF based reduction */
+    /** PTX  UDF based reduction */
     PTX(22),
-    /** CUDA UDf based reduction */
+    /** CUDA UDF based reduction */
     CUDA(23);
 
       public final int value;
@@ -107,4 +97,8 @@ public class aggregation extends Pointer {
   public native @Cast("size_t") long do_hash();
 
   public native @UniquePtr aggregation clone();
+
+  // override functions for compound aggregations
+  public native @StdVector @Cast("cudf::aggregation::Kind*") IntPointer get_simple_aggregations(@ByVal data_type col_type);
+  public native void finalize(@ByRef aggregation_finalizer finalizer);
 }
