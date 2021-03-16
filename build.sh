@@ -17,8 +17,8 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libcudf cudf dask_cudf benchmarks tests libcudf_kafka cudf_kafka custreamz -v -g -n -l --allgpuarch --disable_nvtx --show_depr_warn --ptds -h"
-HELP="$0 [clean] [libcudf] [cudf] [dask_cudf] [benchmarks] [tests] [libcudf_kafka] [cudf_kafka] [custreamz] [-v] [-g] [-n] [-h] [-l]
+VALIDARGS="clean libcudf cudf dask_cudf benchmarks tests libcudf_kafka libcudf_s3 cudf_kafka custreamz -v -g -n -l --allgpuarch --disable_nvtx --show_depr_warn --ptds -h"
+HELP="$0 [clean] [libcudf] [cudf] [dask_cudf] [benchmarks] [tests] [libcudf_kafka] [libcudf_s3] [cudf_kafka] [custreamz] [-v] [-g] [-n] [-h] [-l]
    clean                - remove all existing build artifacts and configuration (start
                           over)
    libcudf              - build the cudf C++ code only
@@ -28,6 +28,7 @@ HELP="$0 [clean] [libcudf] [cudf] [dask_cudf] [benchmarks] [tests] [libcudf_kafk
    tests                - build tests
    libcudf_kafka        - build the libcudf_kafka C++ code only
    cudf_kafka           - build the cudf_kafka Python package
+   libcudf_s3           - build the libcudf_s3 C++ code only
    custreamz            - build the custreamz Python package
    -v                   - verbose build mode
    -g                   - build for debug
@@ -44,11 +45,12 @@ HELP="$0 [clean] [libcudf] [cudf] [dask_cudf] [benchmarks] [tests] [libcudf_kafk
 "
 LIB_BUILD_DIR=${LIB_BUILD_DIR:=${REPODIR}/cpp/build}
 KAFKA_LIB_BUILD_DIR=${KAFKA_LIB_BUILD_DIR:=${REPODIR}/cpp/libcudf_kafka/build}
+S3_LIB_BUILD_DIR=${S3_LIB_BUILD_DIR:=${REPODIR}/cpp/libcudf_s3/build}
 CUDF_KAFKA_BUILD_DIR=${REPODIR}/python/cudf_kafka/build
 CUDF_BUILD_DIR=${REPODIR}/python/cudf/build
 DASK_CUDF_BUILD_DIR=${REPODIR}/python/dask_cudf/build
 CUSTREAMZ_BUILD_DIR=${REPODIR}/python/custreamz/build
-BUILD_DIRS="${LIB_BUILD_DIR} ${CUDF_BUILD_DIR} ${DASK_CUDF_BUILD_DIR} ${KAFKA_LIB_BUILD_DIR} ${CUDF_KAFKA_BUILD_DIR} ${CUSTREAMZ_BUILD_DIR}"
+BUILD_DIRS="${LIB_BUILD_DIR} ${CUDF_BUILD_DIR} ${DASK_CUDF_BUILD_DIR} ${KAFKA_LIB_BUILD_DIR} ${CUDF_KAFKA_BUILD_DIR} ${S3_LIB_BUILD_DIR} ${CUSTREAMZ_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
 VERBOSE_FLAG=""
@@ -204,6 +206,24 @@ if hasArg libcudf_kafka; then
 
     if [[ ${BUILD_TESTS} == "ON" ]]; then
         cmake --build . -j${PARALLEL_LEVEL} --target  build_tests_libcudf_kafka ${VERBOSE_FLAG}
+    fi
+fi
+
+# Build libcudf_s3 library
+if hasArg libcudf_s3; then
+    cmake -S $REPODIR/cpp/libcudf_s3 -B ${S3_LIB_BUILD_DIR} \
+          -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+          -DCMAKE_BUILD_TYPE=${BUILD_TYPE}
+
+    cd ${S3_LIB_BUILD_DIR}
+    if [[ ${INSTALL_TARGET} != "" ]]; then
+        cmake --build . -j${PARALLEL_LEVEL} --target install ${VERBOSE_FLAG}
+    else
+        cmake --build . -j${PARALLEL_LEVEL} --target  libcudf_s3 ${VERBOSE_FLAG}
+    fi
+
+    if [[ ${BUILD_TESTS} == "ON" ]]; then
+        cmake --build . -j${PARALLEL_LEVEL} --target  build_tests_libcudf_s3 ${VERBOSE_FLAG}
     fi
 fi
 
