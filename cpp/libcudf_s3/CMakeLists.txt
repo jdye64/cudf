@@ -93,6 +93,10 @@ add_library(cudf_s3 SHARED
 # - cudf_s3 Install ----------------------------------------------------------------------------
 target_link_libraries(cudf_s3 cudf::cudf)
 
+# Create a binary executable for local speed testing
+add_executable(main src/main.cpp)
+target_link_libraries(main cudf_s3)
+
 install(TARGETS cudf_s3
         DESTINATION lib)
 

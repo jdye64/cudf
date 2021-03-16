@@ -41,6 +41,7 @@ class s3_arrow_datasource : public cudf::io::datasource {
 
  private:
   std::string s3_path;
+  std::string buffer;
 };
 
 }  // namespace s3

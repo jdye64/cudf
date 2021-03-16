@@ -23,24 +23,9 @@ namespace io {
 namespace external {
 namespace s3 {
 
-s3_arrow_datasource::s3_arrow_datasource(std::map<std::string, std::string> const &configs)
-  : kafka_conf(RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL))
+s3_arrow_datasource::s3_arrow_datasource(std::string s3_path) : s3_path(s3_path)
 {
-  for (auto const &key_value : configs) {
-    std::string error_string;
-    CUDF_EXPECTS(RdKafka::Conf::ConfResult::CONF_OK ==
-                   kafka_conf->set(key_value.first, key_value.second, error_string),
-                 "Invalid Kafka configuration");
-  }
-
-  // Kafka 0.9 > requires group.id in the configuration
-  std::string conf_val;
-  CUDF_EXPECTS(RdKafka::Conf::ConfResult::CONF_OK == kafka_conf->get("group.id", conf_val),
-               "Kafka group.id must be configured");
-
-  std::string errstr;
-  consumer = std::unique_ptr<RdKafka::KafkaConsumer>(
-    RdKafka::KafkaConsumer::create(kafka_conf.get(), errstr));
+  printf("Ok entering the logic to create the s3_arrow_datasource\n");
 }
 
 std::unique_ptr<cudf::io::datasource::buffer> s3_arrow_datasource::host_read(size_t offset,
