@@ -21,6 +21,13 @@
 #include <map>
 #include <memory>
 #include <string>
+#include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/s3fs.h"
+#include "arrow/status.h"
+#include "cudf/io/datasource.hpp"
+#include "cudf/io/parquet.hpp"
+#include "cudf/io/types.hpp"
+#include "cudf/table/table.hpp"
 
 namespace cudf {
 namespace io {
@@ -41,6 +48,11 @@ class s3_arrow_datasource : public cudf::io::datasource {
 
  private:
   std::string s3_path;
+  arrow::fs::S3GlobalOptions global_options;
+  arrow::fs::S3Options options;
+  std::shared_ptr<arrow::fs::S3FileSystem> s3fs;
+  std::shared_ptr<arrow::io::RandomAccessFile> arrow_random_access_file;
+  std::shared_ptr<cudf::io::arrow_io_source> arrow_source;
   std::string buffer;
 };
 

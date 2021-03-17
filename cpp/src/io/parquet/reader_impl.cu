@@ -1394,6 +1394,7 @@ table_with_metadata reader::impl::read(size_type skip_rows,
                                        std::vector<std::vector<size_type>> const &row_group_list,
                                        rmm::cuda_stream_view stream)
 {
+  printf("CUDA reader_impl.cu for parquet!\n");
   // Select only row groups required
   const auto selected_row_groups =
     _metadata->select_row_groups(row_group_list, skip_rows, num_rows);
