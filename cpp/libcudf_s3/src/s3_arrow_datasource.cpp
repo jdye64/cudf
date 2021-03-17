@@ -26,12 +26,8 @@ namespace s3 {
 
 s3_arrow_datasource::s3_arrow_datasource(std::string s3_path) : s3_path(s3_path)
 {
-  printf("Ok entering the logic to create the s3_arrow_datasource\n");
-
-  buffer = "something";
-
   global_options            = arrow::fs::S3GlobalOptions();
-  global_options.log_level  = arrow::fs::S3LogLevel::Debug;
+  global_options.log_level  = arrow::fs::S3LogLevel::Fatal;
   arrow::Status init_status = arrow::fs::InitializeS3(global_options);
 
   options = arrow::fs::S3Options();
@@ -51,29 +47,35 @@ s3_arrow_datasource::s3_arrow_datasource(std::string s3_path) : s3_path(s3_path)
         s3fs->OpenInputFile(file_info.ValueOrDie());
 
       if (in_stream.ok()) {
-        printf("Input stream generation is ok!\n");
         arrow_random_access_file = in_stream.ValueOrDie();
         arrow_source = std::make_shared<cudf::io::arrow_io_source>(arrow_random_access_file);
       } else {
-        printf("DANG! Seems like we had some trouble! %s\n", in_stream.status().message().c_str());
+        printf("Error: %s\n", in_stream.status().message().c_str());
       }
+
     } else {
-      printf("Something bad wrong ... %s\n", file_info.status().message().c_str());
+      printf("Error: %s\n", file_info.status().message().c_str());
     }
 
   } else {
-    std::string err = fs.status().message();
-    printf("Error: %s\n", err.c_str());
+    printf("Error: %s\n", fs.status().message().c_str());
   }
 }
 
 std::unique_ptr<cudf::io::datasource::buffer> s3_arrow_datasource::host_read(size_t offset,
                                                                              size_t size)
 {
-  printf("Calling first host read\n");
-  if (offset > buffer.size()) { return 0; }
-  size = std::min(size, buffer.size() - offset);
-  return std::make_unique<non_owning_buffer>((uint8_t *)buffer.data() + offset, size);
+  printf(
+    "File Total Size: %ld, Offset: %ld, Size: %ld\n", s3_arrow_datasource::size(), offset, size);
+  if (offset > s3_arrow_datasource::size()) {
+    printf("Returning 0 as the offset is larger than the file size!\n");
+    return 0;
+  }
+  size        = std::min(size, s3_arrow_datasource::size() - offset);
+  auto result = arrow_random_access_file->ReadAt(offset, size);
+  CUDF_EXPECTS(result.ok(), "Cannot read file data");
+  return std::make_unique<cudf::io::external::s3::s3_arrow_datasource::arrow_io_buffer>(
+    result.ValueOrDie());
 }
 
 size_t s3_arrow_datasource::host_read(size_t offset, size_t size, uint8_t *dst)
@@ -87,8 +89,9 @@ size_t s3_arrow_datasource::host_read(size_t offset, size_t size, uint8_t *dst)
 
 size_t s3_arrow_datasource::size() const
 {
-  printf("calling size function\n");
-  return buffer.size();
+  auto result = arrow_random_access_file->GetSize();
+  CUDF_EXPECTS(result.ok(), "Cannot get file size");
+  return result.ValueOrDie();
 }
 
 }  // namespace s3

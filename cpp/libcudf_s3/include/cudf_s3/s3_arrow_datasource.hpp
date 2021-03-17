@@ -35,6 +35,21 @@ namespace external {
 namespace s3 {
 
 class s3_arrow_datasource : public cudf::io::datasource {
+  /**
+   * @brief Implementation for an owning buffer where `arrow::Buffer` holds the data.
+   */
+  class arrow_io_buffer : public buffer {
+    std::shared_ptr<arrow::Buffer> arrow_buffer;
+
+   public:
+    explicit arrow_io_buffer(std::shared_ptr<arrow::Buffer> arrow_buffer)
+      : arrow_buffer(arrow_buffer)
+    {
+    }
+    size_t size() const override { return arrow_buffer->size(); }
+    uint8_t const* data() const override { return arrow_buffer->data(); }
+  };
+
  public:
   s3_arrow_datasource(std::string s3_path);
 
@@ -42,9 +57,11 @@ class s3_arrow_datasource : public cudf::io::datasource {
 
   size_t size() const override;
 
-  size_t host_read(size_t offset, size_t size, uint8_t *dst) override;
+  size_t host_read(size_t offset, size_t size, uint8_t* dst) override;
 
   virtual ~s3_arrow_datasource(){};
+
+  std::shared_ptr<cudf::io::arrow_io_source> arrow_source;
 
  private:
   std::string s3_path;
@@ -52,7 +69,6 @@ class s3_arrow_datasource : public cudf::io::datasource {
   arrow::fs::S3Options options;
   std::shared_ptr<arrow::fs::S3FileSystem> s3fs;
   std::shared_ptr<arrow::io::RandomAccessFile> arrow_random_access_file;
-  std::shared_ptr<cudf::io::arrow_io_source> arrow_source;
   std::string buffer;
 };
 
