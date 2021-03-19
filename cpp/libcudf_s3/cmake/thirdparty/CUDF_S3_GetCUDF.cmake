@@ -32,9 +32,9 @@ function(find_and_configure_cudf VERSION)
     cudfkafka_save_if_enabled(BUILD_BENCHMARKS)
     CPMFindPackage(NAME cudf
         VERSION         ${VERSION}
-        GIT_REPOSITORY  https://github.com/trxcllnt/cudf.git
+        GIT_REPOSITORY  https://github.com/jdye64/cudf.git
         # GIT_TAG         branch-${VERSION}
-        GIT_TAG         fix/cmake-always-export-cudftestutil
+        GIT_TAG         arrow_random_file_access
         GIT_SHALLOW     TRUE
         SOURCE_SUBDIR   cpp
         OPTIONS         "BUILD_TESTS OFF"

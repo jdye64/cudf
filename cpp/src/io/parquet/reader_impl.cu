@@ -1418,6 +1418,7 @@ table_with_metadata reader::impl::read(size_type skip_rows,
 
   printf("Right before the if statement\n");
   if (selected_row_groups.size() != 0 && _input_columns.size() != 0) {
+    printf("Inside of the if statement!\n");
     // Descriptors for all the chunks that make up the selected columns
     const auto num_input_columns = _input_columns.size();
     const auto num_chunks        = selected_row_groups.size() * num_input_columns;
@@ -1580,6 +1581,8 @@ table_with_metadata reader::impl::read(size_type skip_rows,
       }
     }
   }
+
+  printf("Didn't enter the IF loop\n");
 
   // Create empty columns as needed (this can happen if we've ended up with no actual data to read)
   for (size_t i = out_columns.size(); i < _output_columns.size(); ++i) {
