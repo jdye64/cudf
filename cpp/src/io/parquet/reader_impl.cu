@@ -37,6 +37,8 @@
 #include <numeric>
 #include <regex>
 
+#include <stdio.h>
+
 namespace cudf {
 namespace io {
 namespace detail {
@@ -1373,6 +1375,7 @@ reader::impl::impl(std::vector<std::unique_ptr<datasource>> &&sources,
                    rmm::mr::device_memory_resource *mr)
   : _mr(mr), _sources(std::move(sources))
 {
+  printf("Entering metadata creation, this should occur before read is invoked\n");
   // Open and parse the source dataset metadata
   _metadata = std::make_unique<aggregate_metadata>(_sources);
 
@@ -1386,6 +1389,7 @@ reader::impl::impl(std::vector<std::unique_ptr<datasource>> &&sources,
   // Strings may be returned as either string or categorical columns
   _strings_to_categorical = options.is_enabled_convert_strings_to_categories();
 
+  printf("Before invoking std::tie\n");
   // Select only columns required by the options
   std::tie(_input_columns, _output_columns, _output_column_schemas) =
     _metadata->select_columns(options.get_columns(),
@@ -1393,6 +1397,7 @@ reader::impl::impl(std::vector<std::unique_ptr<datasource>> &&sources,
                               _strings_to_categorical,
                               _timestamp_type.id(),
                               _strict_decimal_types);
+  printf("Metadata is generated now!\n");
 }
 
 table_with_metadata reader::impl::read(size_type skip_rows,
@@ -1400,7 +1405,7 @@ table_with_metadata reader::impl::read(size_type skip_rows,
                                        std::vector<std::vector<size_type>> const &row_group_list,
                                        rmm::cuda_stream_view stream)
 {
-  printf("CUDA reader_impl.cu for parquet!\n");
+  printf("Entering reader_impl.cu read ....\n");
   // Select only row groups required
   const auto selected_row_groups =
     _metadata->select_row_groups(row_group_list, skip_rows, num_rows);
@@ -1411,6 +1416,7 @@ table_with_metadata reader::impl::read(size_type skip_rows,
   std::vector<std::unique_ptr<column>> out_columns;
   out_columns.reserve(_output_columns.size());
 
+  printf("Right before the if statement\n");
   if (selected_row_groups.size() != 0 && _input_columns.size() != 0) {
     // Descriptors for all the chunks that make up the selected columns
     const auto num_input_columns = _input_columns.size();
@@ -1432,6 +1438,7 @@ table_with_metadata reader::impl::read(size_type skip_rows,
     // Initialize column chunk information
     size_t total_decompressed_size = 0;
     auto remaining_rows            = num_rows;
+    printf("Before selected row groups for loop\n");
     for (const auto &rg : selected_row_groups) {
       const auto &row_group       = _metadata->get_row_group(rg.index, rg.source_index);
       auto const row_group_start  = rg.start_row;
@@ -1440,6 +1447,7 @@ table_with_metadata reader::impl::read(size_type skip_rows,
       auto const io_chunk_idx     = chunks.size();
 
       // generate ColumnChunkDesc objects for everything to be decoded (all input columns)
+      printf("Before columnchunk for loop\n");
       for (size_t i = 0; i < num_input_columns; ++i) {
         auto col = _input_columns[i];
         // look up metadata
@@ -1472,6 +1480,7 @@ table_with_metadata reader::impl::read(size_type skip_rows,
             ? std::min(col_meta.data_page_offset, col_meta.dictionary_page_offset)
             : col_meta.data_page_offset;
 
+        printf("Insert chunk\n");
         chunks.insert(gpu::ColumnChunkDesc(col_meta.total_compressed_size,
                                            nullptr,
                                            col_meta.num_values,
@@ -1512,6 +1521,7 @@ table_with_metadata reader::impl::read(size_type skip_rows,
     assert(remaining_rows <= 0);
 
     // Process dataset chunk pages into output columns
+    printf("Before total pages\n");
     const auto total_pages = count_page_headers(chunks, stream);
     if (total_pages > 0) {
       hostdevice_vector<gpu::PageInfo> pages(total_pages, total_pages, stream);
@@ -1562,6 +1572,7 @@ table_with_metadata reader::impl::read(size_type skip_rows,
       decode_page_data(chunks, pages, page_nesting_info, skip_rows, num_rows, stream);
 
       // create the final output cudf columns
+      printf("Before for loop to create final cudf columns output\n");
       for (size_t i = 0; i < _output_columns.size(); ++i) {
         out_metadata.schema_info.push_back(column_name_info{""});
         out_columns.emplace_back(

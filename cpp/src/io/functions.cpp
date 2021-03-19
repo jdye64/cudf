@@ -403,7 +403,6 @@ namespace detail_parquet = cudf::io::detail::parquet;
 table_with_metadata read_parquet(parquet_reader_options const& options,
                                  rmm::mr::device_memory_resource* mr)
 {
-  printf("functions.cpp: read_parquet\n");
   CUDF_FUNC_RANGE();
   auto reader = make_reader<detail_parquet::reader>(options.get_source(), options, mr);
 
