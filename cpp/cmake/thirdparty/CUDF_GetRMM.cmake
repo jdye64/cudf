@@ -23,8 +23,8 @@ function(find_and_configure_rmm VERSION)
 
     CPMFindPackage(NAME rmm
         VERSION         ${VERSION}
-        GIT_REPOSITORY  https://github.com/rapidsai/rmm.git
-        GIT_TAG         branch-${VERSION}
+        GIT_REPOSITORY  https://github.com/jdye64/rmm.git
+        GIT_TAG         spdlog_target
         GIT_SHALLOW     TRUE
         OPTIONS         "BUILD_TESTS OFF"
                         "BUILD_BENCHMARKS OFF"
